@@ -1,0 +1,505 @@
+<title>Castigram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  /* Castigram — vista previa. Paleta propia del proyecto (terracota + oliva),
+     comprometida con un único mundo visual cálido, como la app real.
+     Se pinta el fondo explícitamente para que aguante sobre cualquier tema. */
+  :root {
+    --bg: #efe6da;          /* barro claro, fondo general */
+    --surface: #ffffff;
+    --surface-2: #fbf6f1;   /* brand-50 */
+    --border: #f0e2d3;      /* brand-100 */
+    --ink: #2b2622;
+    --ink-soft: #6b6157;
+    --ink-faint: #9c9086;
+    --brand-100: #f5e8dc;
+    --brand-200: #ead0ba;
+    --brand-600: #af5a37;
+    --brand-700: #92472f;
+    --brand-800: #763b2c;
+    --olive: #7a8450;
+    --red: #c23b2e;
+    --red-bg: #fbe9e6;
+    --sky-bg:#e3f0f6; --sky-ink:#2f6d88;
+    --amber-bg:#f8eecd; --amber-ink:#8a6a1e;
+    --fuchsia-bg:#f6e6f2; --fuchsia-ink:#8e3a76;
+    --indigo-bg:#e7e8f7; --indigo-ink:#474b9a;
+    --orange-bg:#f8e6d5; --orange-ink:#9a5a24;
+    --emerald-bg:#dff0e6; --emerald-ink:#2f7d53;
+    --stone-bg:#efece8; --stone-ink:#5f574e;
+    --shadow: 0 1px 2px rgba(80,55,35,.06), 0 6px 20px rgba(80,55,35,.05);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background:
+      radial-gradient(120% 60% at 50% -10%, #f6efe6 0%, var(--bg) 60%) fixed;
+    color: var(--ink);
+    font-family: "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 0;
+  }
+  .display { font-family: "Fraunces", Georgia, serif; }
+
+  /* Marco tipo teléfono en pantallas anchas; a pantalla completa en móvil */
+  .phone {
+    width: 100%;
+    max-width: 452px;
+    background: var(--surface-2);
+    min-height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 0 1px rgba(80,55,35,.06), 0 30px 80px rgba(70,45,25,.18);
+  }
+  @media (min-width: 520px) {
+    body { padding: 28px 16px 40px; align-items: flex-start; }
+    .phone { min-height: auto; border-radius: 30px; overflow: hidden; }
+  }
+
+  /* Cabecera */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(251,246,241,.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-logo { width: 38px; height: 38px; border-radius: 11px; display:block; }
+  .brand-name { font-weight: 600; font-size: 19px; color: var(--brand-800); line-height: 1; }
+  .brand-town { font-size: 11.5px; color: var(--ink-faint); margin-top: 3px; }
+  .head-actions { display: flex; align-items: center; gap: 6px; }
+  .icon-btn {
+    border: none; background: transparent; color: var(--ink-soft);
+    width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+    display: grid; place-items: center; position: relative;
+  }
+  .icon-btn:hover { background: var(--brand-100); }
+  .badge {
+    position: absolute; top: 6px; right: 6px; background: var(--red); color:#fff;
+    font-size: 10px; font-weight: 700; min-width: 16px; height: 16px;
+    border-radius: 9px; display: grid; place-items: center; padding: 0 4px;
+  }
+  .me {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--brand-200);
+    color: var(--brand-800); font-weight: 700; font-size: 13px;
+    display: grid; place-items: center;
+  }
+
+  main { flex: 1; padding: 18px 16px 96px; }
+  .page-head { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+  .page-head h1 { font-size: 23px; font-weight: 600; color: var(--brand-800); margin: 0; }
+  .page-sub { color: var(--ink-soft); font-size: 13.5px; margin: 0 0 16px; line-height: 1.5; }
+
+  .feed { display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-pad { padding: 16px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 999px; padding: 3px 10px;
+    font-size: 12px; font-weight: 600;
+  }
+  .c-agua{background:var(--sky-bg);color:var(--sky-ink);}
+  .c-fiestas{background:var(--fuchsia-bg);color:var(--fuchsia-ink);}
+  .c-pleno{background:var(--indigo-bg);color:var(--indigo-ink);}
+  .c-obras{background:var(--orange-bg);color:var(--orange-ink);}
+  .c-general{background:var(--stone-bg);color:var(--stone-ink);}
+  .c-venta{background:var(--emerald-bg);color:var(--emerald-ink);}
+  .c-servicio{background:var(--indigo-bg);color:var(--indigo-ink);}
+  .c-regalo{background:var(--fuchsia-bg);color:var(--fuchsia-ink);}
+  .c-compra{background:var(--sky-bg);color:var(--sky-ink);}
+
+  .bando-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+  .when { font-size: 11.5px; color: var(--ink-faint); white-space: nowrap; }
+  .bando-title { font-family:"Fraunces",serif; font-size: 18px; font-weight: 600; margin: 0 0 5px; color: var(--ink); }
+  .body-text { font-size: 14.5px; line-height: 1.6; color: #4a423a; margin: 0; }
+  .byline { font-size: 11.5px; color: var(--ink-faint); margin-top: 10px; }
+
+  .urgent-bar {
+    background: var(--red); color: #fff; font-size: 13px; font-weight: 600;
+    padding: 7px 16px; display: flex; align-items: center; gap: 7px;
+  }
+  .card.urgent { box-shadow: 0 0 0 2px #e79a90, var(--shadow); }
+
+  .actions { display:flex; align-items:center; gap:20px; border-top:1px solid var(--surface-2); margin-top:14px; padding-top:12px; }
+  .act { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-faint); background:none;border:none;cursor:pointer; font-family:inherit; }
+  .act:hover{ color: var(--brand-700); }
+  .act.liked { color: var(--red); }
+
+  .photo { width: 100%; display:block; height: 172px; object-fit: cover; }
+  .photo-wrap { margin-top: 12px; border-radius: 12px; overflow: hidden; border:1px solid var(--border); }
+
+  /* Muro / avatares */
+  .post-head { display:flex; align-items:center; gap:11px; }
+  .avatar { width: 40px; height:40px; border-radius:50%; display:grid; place-items:center; font-weight:700; font-size:15px; color:#fff; flex:none; }
+  .a1{background:#8a6a3e;} .a2{background:#6f8452;} .a3{background:#a2593e;} .a4{background:#5e7a86;} .a5{background:#9a6a86;}
+  .post-name { font-size: 14px; font-weight: 600; }
+
+  /* Mercadillo */
+  .list-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .price { font-family:"Fraunces",serif; font-size:19px; font-weight:700; color:var(--brand-700); white-space:nowrap; }
+  .list-title { font-size:15.5px; font-weight:700; margin:9px 0 4px; }
+  .filters { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:16px; -webkit-overflow-scrolling:touch; }
+  .filters::-webkit-scrollbar{ display:none; }
+  .fchip { flex:none; border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:600; background:var(--brand-100); color:var(--brand-700); border:none; cursor:pointer; font-family:inherit; }
+  .fchip.on { background: var(--brand-600); color:#fff; }
+
+  .cta {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; background:var(--brand-600); color:#fff; border:none;
+    border-radius:999px; padding:12px; font-size:14px; font-weight:600;
+    cursor:pointer; margin-bottom:16px; font-family:inherit;
+  }
+  .cta:hover{ background:var(--brand-700); }
+
+  /* Barra inferior */
+  nav {
+    position: sticky; bottom: 0; z-index: 20;
+    background: rgba(255,255,255,.96);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-around;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tab {
+    flex:1; background:none; border:none; cursor:pointer; font-family:inherit;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:7px 2px; font-size:11px; color:var(--ink-faint); font-weight:500;
+  }
+  .tab.on { color: var(--brand-700); }
+  .tab svg { width:22px; height:22px; }
+  .tab.publish { color: var(--brand-700); }
+
+  .view { display:none; }
+  .view.on { display:block; animation: fade .25s ease; }
+  @keyframes fade { from{opacity:0; transform: translateY(4px);} to{opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce){ .view.on{ animation:none; } }
+
+  .note {
+    max-width: 452px; margin: 14px auto 0; padding: 0 18px; text-align:center;
+    font-size: 12px; color: #7c6f60; line-height:1.5;
+  }
+</style>
+
+<div class="phone">
+  <header>
+    <div class="brand">
+      <svg class="brand-logo" viewBox="0 0 48 48" aria-label="Castigram">
+        <rect width="48" height="48" rx="12" fill="#af5a37"/>
+        <path d="M10 26 L24 15 L38 26 Z" fill="#f5e8dc"/>
+        <path d="M20 27 h8 l6 -4 v14 l-6 -4 h-8 z" fill="#f5e8dc" stroke="#603227" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M35 28 q3 3 0 6" stroke="#f5e8dc" stroke-width="2" stroke-linecap="round" fill="none"/>
+      </svg>
+      <div>
+        <div class="brand-name display">Castigram</div>
+        <div class="brand-town">Castillejo de Mesleón</div>
+      </div>
+    </div>
+    <div class="head-actions">
+      <button class="icon-btn" aria-label="Notificaciones">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span class="badge">2</span>
+      </button>
+      <div class="me">MG</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ====================== BANDOS ====================== -->
+    <section class="view on" id="view-bandos">
+      <div class="page-head">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#af5a37" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+        <h1 class="display">Bandos oficiales</h1>
+      </div>
+      <p class="page-sub">Avisos del Ayuntamiento de Castillejo de Mesleón. Sustituyen al bando municipal.</p>
+
+      <div class="feed">
+        <article class="card urgent">
+          <div class="urgent-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            Aviso urgente
+          </div>
+          <div class="card-pad">
+            <div class="bando-top">
+              <span class="chip c-agua">💧 Agua</span>
+              <span class="when">hoy, 08:15</span>
+            </div>
+            <h2 class="bando-title">Corte de agua el jueves por obras en la red</h2>
+            <p class="body-text">El jueves 21 de agosto, de 9:00 a 14:00, se cortará el suministro en la calle Real y la plaza de la Iglesia por una reparación de la tubería general. Se recomienda llenar garrafas la noche anterior. Disculpen las molestias.</p>
+            <div class="byline">Publicado por el Ayuntamiento</div>
+            <div class="actions">
+              <button class="act liked"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.35-9.5-8.5C.8 9.6 2.2 6 5.5 6 7.6 6 9 7.5 12 10c3-2.5 4.4-4 6.5-4 3.3 0 4.7 3.6 3 6.5C19 16.65 12 21 12 21z"/></svg> 14</button>
+              <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 6</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-pad">
+            <div class="bando-top">
+              <span class="chip c-fiestas">🎉 Fiestas</span>
+              <span class="when">ayer, 19:40</span>
+            </div>
+            <h2 class="bando-title">Programa de las fiestas de San Roque 2026</h2>
+            <p class="body-text">Del 14 al 16 de agosto. Ya está disponible el programa: procesión, vaquillas, verbena con orquesta, comida popular en la plaza y concurso de calva. La camiseta de las fiestas se recoge en el Ayuntamiento. ¡Os esperamos a todos!</p>
+            <div class="photo-wrap">
+              <img class="photo" alt="Plaza del pueblo engalanada" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f4d9a6'/%3E%3Cstop offset='1' stop-color='%23e8b06a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='800' height='400' fill='url(%23g)'/%3E%3Cg fill='%23b5763e'%3E%3Crect x='90' y='150' width='150' height='180'/%3E%3Crect x='560' y='130' width='170' height='200'/%3E%3C/g%3E%3Cpolygon points='60,150 165,90 270,150' fill='%238a5a2e'/%3E%3Cpolygon points='540,130 645,70 750,130' fill='%238a5a2e'/%3E%3Crect x='330' y='120' width='140' height='210' fill='%23c98a52'/%3E%3Cpolygon points='320,120 400,60 480,120' fill='%237a4a26'/%3E%3Crect x='386' y='40' width='28' height='40' fill='%237a4a26'/%3E%3Cg stroke='%23fff' stroke-width='3' opacity='.7'%3E%3Cline x1='0' y1='40' x2='400' y2='20'/%3E%3Cline x1='400' y1='20' x2='800' y2='45'/%3E%3C/g%3E%3Cg fill='%23c23b2e'%3E%3Ccircle cx='120' cy='34' r='7'/%3E%3Ccircle cx='260' cy='24' r='7'/%3E%3Ccircle cx='540' cy='27' r='7'/%3E%3Ccircle cx='680' cy='38' r='7'/%3E%3C/g%3E%3C/svg%3E">
+            </div>
+            <div class="byline">Publicado por el Ayuntamiento</div>
+            <div class="actions">
+              <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.35-9.5-8.5C.8 9.6 2.2 6 5.5 6 7.6 6 9 7.5 12 10c3-2.5 4.4-4 6.5-4 3.3 0 4.7 3.6 3 6.5C19 16.65 12 21 12 21z"/></svg> 38</button>
+              <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 12</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-pad">
+            <div class="bando-top">
+              <span class="chip c-pleno">🏛️ Pleno</span>
+              <span class="when">hace 3 días</span>
+            </div>
+            <h2 class="bando-title">Convocatoria de pleno ordinario</h2>
+            <p class="body-text">Se convoca a los vecinos al pleno ordinario del Ayuntamiento el viernes 22 a las 20:00 en el salón de plenos. Orden del día: presupuesto del arreglo del camino del cementerio, contratación del socorrista para la piscina y ruegos y preguntas.</p>
+            <div class="byline">Publicado por el Ayuntamiento</div>
+            <div class="actions">
+              <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.35-9.5-8.5C.8 9.6 2.2 6 5.5 6 7.6 6 9 7.5 12 10c3-2.5 4.4-4 6.5-4 3.3 0 4.7 3.6 3 6.5C19 16.65 12 21 12 21z"/></svg> 9</button>
+              <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 4</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-pad">
+            <div class="bando-top">
+              <span class="chip c-general">📣 General</span>
+              <span class="when">hace 5 días</span>
+            </div>
+            <h2 class="bando-title">El consultorio médico pasa consulta los martes</h2>
+            <p class="body-text">Recordamos que el médico atiende en el consultorio local todos los martes de 10:00 a 12:30. Para recetas y avisos fuera de ese horario, llamar al centro de salud de Riaza.</p>
+            <div class="byline">Publicado por el Ayuntamiento</div>
+            <div class="actions">
+              <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.35-9.5-8.5C.8 9.6 2.2 6 5.5 6 7.6 6 9 7.5 12 10c3-2.5 4.4-4 6.5-4 3.3 0 4.7 3.6 3 6.5C19 16.65 12 21 12 21z"/></svg> 21</button>
+              <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 3</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ====================== MURO ====================== -->
+    <section class="view" id="view-muro">
+      <div class="page-head">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#af5a37" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21a8 8 0 0 0-12 0"/><circle cx="12" cy="8" r="5"/></svg>
+        <h1 class="display">Muro vecinal</h1>
+      </div>
+      <p class="page-sub">Lo que se cuece en el pueblo, contado por los vecinos.</p>
+
+      <button class="cta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        Escribir en el muro
+      </button>
+
+      <div class="feed">
+        <article class="card card-pad">
+          <div class="post-head">
+            <div class="avatar a2">RP</div>
+            <div style="flex:1">
+              <div class="post-name">Rosa Pérez</div>
+              <div class="when">hace 2 horas</div>
+            </div>
+          </div>
+          <p class="body-text" style="margin-top:12px">Menudo atardecer se ha quedado hoy desde el alto de la ermita. Las cigüeñas ya andan preparando la marcha. 🧡</p>
+          <div class="photo-wrap">
+            <img class="photo" alt="Atardecer sobre el campo" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Cdefs%3E%3ClinearGradient id='s' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f6c46b'/%3E%3Cstop offset='.55' stop-color='%23e88a4a'/%3E%3Cstop offset='1' stop-color='%23b8623a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='800' height='400' fill='url(%23s)'/%3E%3Ccircle cx='560' cy='150' r='54' fill='%23fce9be' opacity='.95'/%3E%3Cpath d='M0 300 Q200 250 400 290 T800 285 V400 H0 Z' fill='%238a6a3a'/%3E%3Cpath d='M0 330 Q250 300 500 325 T800 330 V400 H0 Z' fill='%236a5230'/%3E%3C/svg%3E">
+          </div>
+          <div class="actions">
+            <button class="act liked"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.35-9.5-8.5C.8 9.6 2.2 6 5.5 6 7.6 6 9 7.5 12 10c3-2.5 4.4-4 6.5-4 3.3 0 4.7 3.6 3 6.5C19 16.65 12 21 12 21z"/></svg> 27</button>
+            <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 5</button>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="post-head">
+            <div class="avatar a1">JM</div>
+            <div style="flex:1">
+              <div class="post-name">Julián Martín</div>
+              <div class="when">hace 5 horas</div>
+            </div>
+          </div>
+          <p class="body-text" style="margin-top:12px">¿Alguien sabe si el panadero sube mañana? Es que la furgoneta no pasó el lunes y me he quedado sin pan. 🥖</p>
+          <div class="actions">
+            <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.35-9.5-8.5C.8 9.6 2.2 6 5.5 6 7.6 6 9 7.5 12 10c3-2.5 4.4-4 6.5-4 3.3 0 4.7 3.6 3 6.5C19 16.65 12 21 12 21z"/></svg> 3</button>
+            <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 8</button>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="post-head">
+            <div class="avatar a4">CB</div>
+            <div style="flex:1">
+              <div class="post-name">Carmen Bravo</div>
+              <div class="when">ayer</div>
+            </div>
+          </div>
+          <p class="body-text" style="margin-top:12px">El sábado a las 10 quedamos unos cuantos para limpiar la fuente vieja y quitar las hierbas del lavadero. Quien pueda echar una mano, que traiga guantes. Luego hay almuerzo. 💪</p>
+          <div class="actions">
+            <button class="act liked"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.35-9.5-8.5C.8 9.6 2.2 6 5.5 6 7.6 6 9 7.5 12 10c3-2.5 4.4-4 6.5-4 3.3 0 4.7 3.6 3 6.5C19 16.65 12 21 12 21z"/></svg> 41</button>
+            <button class="act"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> 15</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ====================== MERCADILLO ====================== -->
+    <section class="view" id="view-mercadillo">
+      <div class="page-head">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#af5a37" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <h1 class="display">Mercadillo</h1>
+      </div>
+      <p class="page-sub">El tablón de anuncios del pueblo: se vende, se busca, servicios.</p>
+
+      <button class="cta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        Poner un anuncio
+      </button>
+
+      <div class="filters">
+        <button class="fchip on">Todo</button>
+        <button class="fchip">🏷️ Se vende</button>
+        <button class="fchip">🔎 Se busca</button>
+        <button class="fchip">🛠️ Servicio</button>
+        <button class="fchip">🔑 Alquiler</button>
+        <button class="fchip">🎁 Se regala</button>
+      </div>
+
+      <div class="feed">
+        <article class="card card-pad">
+          <div class="list-top">
+            <span class="chip c-venta">🏷️ Se vende</span>
+            <span class="price">80 €</span>
+          </div>
+          <h3 class="list-title">Leña de encina seca, por sacos</h3>
+          <p class="body-text">Leña de encina bien seca, cortada del año pasado. Vendo por sacos o el remolque entero. Puedo acercarla por el pueblo. Preguntad por Andrés, el de la era.</p>
+          <div class="actions" style="border:none;padding-top:12px;margin-top:8px">
+            <div class="post-head" style="gap:8px">
+              <div class="avatar a3" style="width:28px;height:28px;font-size:11px">AL</div>
+              <span class="when">Andrés L. · hace 1 día</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="list-top">
+            <span class="chip c-servicio">🛠️ Servicio</span>
+          </div>
+          <h3 class="list-title">Clases de repaso para el verano</h3>
+          <p class="body-text">Soy maestra y este verano estoy en el pueblo. Doy repaso de primaria y ESO (mates, lengua, inglés). En grupos pequeños o individual. Escribidme por aquí.</p>
+          <div class="actions" style="border:none;padding-top:12px;margin-top:8px">
+            <div class="post-head" style="gap:8px">
+              <div class="avatar a5" style="width:28px;height:28px;font-size:11px">LN</div>
+              <span class="when">Lucía N. · hace 2 días</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="list-top">
+            <span class="chip c-regalo">🎁 Se regala</span>
+            <span class="price">Gratis</span>
+          </div>
+          <h3 class="list-title">Camada de gatitos buscando casa</h3>
+          <p class="body-text">La gata ha tenido cinco y no podemos quedárnoslos. Están sanos y ya comen solos. Se regalan a quien les dé buen hogar, aquí en el pueblo o donde sea.</p>
+          <div class="photo-wrap">
+            <img class="photo" alt="Gatitos" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='360'%3E%3Crect width='800' height='360' fill='%23e9ddcb'/%3E%3Cg fill='%23a9855c'%3E%3Cellipse cx='300' cy='230' rx='70' ry='58'/%3E%3Cellipse cx='470' cy='235' rx='72' ry='60'/%3E%3C/g%3E%3Cg fill='%238a6a44'%3E%3Cpolygon points='250,185 268,150 288,188'/%3E%3Cpolygon points='330,188 350,150 368,185'/%3E%3Cpolygon points='420,190 440,152 458,190'/%3E%3Cpolygon points='500,190 520,152 538,190'/%3E%3C/g%3E%3Cg fill='%233a2e22'%3E%3Ccircle cx='285' cy='225' r='6'/%3E%3Ccircle cx='320' cy='225' r='6'/%3E%3Ccircle cx='455' cy='230' r='6'/%3E%3Ccircle cx='490' cy='230' r='6'/%3E%3C/g%3E%3C/svg%3E">
+          </div>
+          <div class="actions" style="border:none;padding-top:12px;margin-top:8px">
+            <div class="post-head" style="gap:8px">
+              <div class="avatar a2" style="width:28px;height:28px;font-size:11px">RP</div>
+              <span class="when">Rosa P. · hace 3 días</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="list-top">
+            <span class="chip c-compra">🔎 Se busca</span>
+          </div>
+          <h3 class="list-title">Busco quien siegue un prado</h3>
+          <p class="body-text">Tengo un prado a la entrada del pueblo que hay que segar antes de que venga el calor fuerte. Pago lo que sea justo. Si tenéis desbrozadora o tractor, avisadme.</p>
+          <div class="actions" style="border:none;padding-top:12px;margin-top:8px">
+            <div class="post-head" style="gap:8px">
+              <div class="avatar a1" style="width:28px;height:28px;font-size:11px">JM</div>
+              <span class="when">Julián M. · hace 4 días</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <button class="tab on" data-view="bandos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+      Bandos
+    </button>
+    <button class="tab" data-view="muro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21a8 8 0 0 0-12 0"/><circle cx="12" cy="8" r="5"/></svg>
+      Muro
+    </button>
+    <button class="tab" data-view="mercadillo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Mercadillo
+    </button>
+    <button class="tab publish" data-view="muro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      Publicar
+    </button>
+  </nav>
+</div>
+
+<p class="note">Vista previa con contenido de ejemplo · Los “me gusta” y las pestañas funcionan. En la app real hay registro de vecinos, publicación con fotos y comentarios.</p>
+
+<script>
+  const tabs = document.querySelectorAll(".tab");
+  const views = document.querySelectorAll(".view");
+  tabs.forEach((t) => {
+    t.addEventListener("click", () => {
+      const target = t.dataset.view;
+      views.forEach((v) => v.classList.toggle("on", v.id === "view-" + target));
+      tabs.forEach((x) => x.classList.remove("on"));
+      // marca activa la pestaña principal correspondiente (no el botón Publicar)
+      document.querySelector('.tab[data-view="' + target + '"]:not(.publish)')?.classList.add("on");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+
+  // "Me gusta" interactivos
+  document.querySelectorAll(".act").forEach((btn) => {
+    const svg = btn.querySelector("svg path");
+    if (btn.innerHTML.includes("M12 21s-7-4.35")) {
+      btn.addEventListener("click", () => {
+        const liked = btn.classList.toggle("liked");
+        const path = btn.querySelector("svg");
+        path.setAttribute("fill", liked ? "currentColor" : "none");
+        const n = btn.textContent.trim().match(/\d+/);
+        if (n) btn.childNodes[btn.childNodes.length - 1].textContent = " " + (parseInt(n[0]) + (liked ? 1 : -1));
+      });
+    }
+  });
+</script>
