@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Trash2, CheckCircle2 } from "lucide-react";
 import { Avatar } from "./Avatar";
 import { LISTING_CATEGORIES } from "@/lib/constants";
@@ -81,9 +82,17 @@ export function ListingCard({
       )}
 
       <div className="mt-3 flex items-center gap-2 border-t border-brand-50 pt-3">
-        <Avatar name={data.authorName} url={data.authorAvatar} size={28} />
+        <Link href={`/vecino/${listing.author_id}`}>
+          <Avatar name={data.authorName} url={data.authorAvatar} size={28} />
+        </Link>
         <span className="text-xs text-stone-500">
-          {data.authorName} · {timeAgo(listing.created_at)}
+          <Link
+            href={`/vecino/${listing.author_id}`}
+            className="font-medium hover:text-brand-700 hover:underline"
+          >
+            {data.authorName}
+          </Link>{" "}
+          · {timeAgo(listing.created_at)}
         </span>
 
         {canManage && (

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { MessageCircle, Trash2 } from "lucide-react";
 import { LikeButton } from "./LikeButton";
 import { CommentsSection } from "./CommentsSection";
@@ -48,9 +49,16 @@ export function PostCard({
   return (
     <article className="card p-4">
       <div className="flex items-center gap-3">
-        <Avatar name={data.authorName} url={data.authorAvatar} size={40} />
+        <Link href={`/vecino/${post.author_id}`}>
+          <Avatar name={data.authorName} url={data.authorAvatar} size={40} />
+        </Link>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-stone-800">{data.authorName}</p>
+          <Link
+            href={`/vecino/${post.author_id}`}
+            className="text-sm font-semibold text-stone-800 hover:text-brand-700 hover:underline"
+          >
+            {data.authorName}
+          </Link>
           <p className="text-xs text-stone-400">{timeAgo(post.created_at)}</p>
         </div>
         {canDelete && (

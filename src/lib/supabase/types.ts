@@ -26,6 +26,10 @@ export interface Profile {
   avatar_url: string | null;
   role: Role;
   bio: string | null;
+  nickname: string | null;
+  relation_type: string | null;
+  relation_to: string | null;
+  relation_name: string | null;
   created_at: string;
 }
 

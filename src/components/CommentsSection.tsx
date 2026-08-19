@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Send, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "./Avatar";
@@ -72,16 +73,21 @@ export function CommentsSection({
         <ul className="space-y-3">
           {comments.map((c) => (
             <li key={c.id} className="flex gap-2">
-              <Avatar
-                name={c.author?.full_name ?? "Vecino"}
-                url={c.author?.avatar_url}
-                size={28}
-              />
+              <Link href={`/vecino/${c.author_id}`}>
+                <Avatar
+                  name={c.author?.full_name ?? "Vecino"}
+                  url={c.author?.avatar_url}
+                  size={28}
+                />
+              </Link>
               <div className="flex-1 rounded-2xl bg-brand-50 px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-stone-800">
+                  <Link
+                    href={`/vecino/${c.author_id}`}
+                    className="text-sm font-semibold text-stone-800 hover:text-brand-700 hover:underline"
+                  >
                     {c.author?.full_name ?? "Vecino"}
-                  </span>
+                  </Link>
                   <span className="text-[11px] text-stone-400">
                     {timeAgo(c.created_at)}
                   </span>

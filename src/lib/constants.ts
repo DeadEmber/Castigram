@@ -15,6 +15,26 @@ export const BANDO_CATEGORIES: Record<
   urgente: { label: "Urgente", className: "bg-red-100 text-red-700", emoji: "🚨" },
 };
 
+// Tipos de vínculo familiar/vecinal entre perfiles. Muy de pueblo:
+// la gente se conoce por "de quién es".
+export const RELATION_TYPES = [
+  "hijo de",
+  "hija de",
+  "nieto de",
+  "nieta de",
+  "hermano de",
+  "hermana de",
+  "sobrino de",
+  "sobrina de",
+  "primo de",
+  "prima de",
+  "marido de",
+  "mujer de",
+  "pareja de",
+  "vecino de",
+  "vecina de",
+] as const;
+
 export const LISTING_CATEGORIES: Record<
   ListingCategory,
   { label: string; className: string; emoji: string }
