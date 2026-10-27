@@ -143,11 +143,69 @@
     return enteros;
   }
 
+  // ---------- lotes (FIFO) ----------
+  // Cada compra es un lote con su coste total (precio más comisiones).
+  // Al vender se consumen primero los lotes más antiguos, como exige el IRPF.
+
+  const CASI_CERO = 1e-9;
+
+  function lotesDesde(participaciones, precioMedio, fecha) {
+    const n = num(participaciones);
+    if (n <= CASI_CERO) return [];
+    return [{ fecha: fecha || "", participaciones: n, coste: n * num(precioMedio) }];
+  }
+
+  // Lotes de una posición; si faltan o no cuadran con las participaciones,
+  // se rehacen como un único lote al precio medio.
+  function lotesDe(p) {
+    const lotes = Array.isArray(p.lotes)
+      ? p.lotes
+          .map((l) => ({ fecha: String(l.fecha || ""), participaciones: num(l.participaciones), coste: num(l.coste) }))
+          .filter((l) => l.participaciones > CASI_CERO)
+      : [];
+    const total = sumar(lotes, (l) => l.participaciones);
+    if (lotes.length && Math.abs(total - num(p.participaciones)) < 1e-6) return lotes;
+    return lotesDesde(p.participaciones, p.precioMedio, p.fechaPrecio);
+  }
+
+  function resumirLotes(lotes) {
+    const participaciones = sumar(lotes, (l) => l.participaciones);
+    const coste = sumar(lotes, (l) => l.coste);
+    return {
+      participaciones,
+      coste,
+      precioMedio: participaciones > CASI_CERO ? coste / participaciones : 0,
+    };
+  }
+
+  // Saca `n` participaciones de los lotes más antiguos.
+  // Devuelve los lotes que quedan, el coste de lo vendido y lo que faltó.
+  function consumirFIFO(lotes, n) {
+    let pendiente = num(n);
+    let coste = 0;
+    const restantes = [];
+    lotes.forEach((l) => {
+      if (pendiente <= CASI_CERO) {
+        restantes.push({ ...l });
+        return;
+      }
+      const usadas = Math.min(l.participaciones, pendiente);
+      const costeUnitario = l.participaciones > 0 ? l.coste / l.participaciones : 0;
+      coste += usadas * costeUnitario;
+      pendiente -= usadas;
+      const quedan = l.participaciones - usadas;
+      if (quedan > CASI_CERO) restantes.push({ ...l, participaciones: quedan, coste: quedan * costeUnitario });
+    });
+    return { restantes, coste, faltan: pendiente > 1e-6 ? pendiente : 0 };
+  }
+
   // ---------- estado ----------
+
+  const TEMAS_POR_DEFECTO = ["oro", "bce", "fed", "bolsa", "inflacion", "petroleo", "cripto"];
 
   function estadoVacio() {
     return {
-      version: 1,
+      version: 2,
       perfil: "moderado",
       objetivo: { ...PERFILES.moderado.objetivo },
       umbral: 5,
@@ -155,7 +213,9 @@
       gastosMensuales: 0,
       posiciones: [],
       operaciones: [],
+      rendimientos: [],
       historial: [],
+      noticias: { temas: [...TEMAS_POR_DEFECTO], fuente: "", clave: "" },
     };
   }
 
@@ -174,20 +234,25 @@
     const posiciones = entrada.posiciones.map((p) => {
       const tipo = TIPOS[p.tipo] ? p.tipo : "otro";
       const clase = CLASES.some((c) => c.id === p.clase) ? p.clase : TIPOS[tipo].clase;
-      return {
+      const posicion = {
         id: p.id ? String(p.id) : nuevoId(),
         nombre: String(p.nombre || "Sin nombre").slice(0, 80),
         ticker: String(p.ticker || "").slice(0, 20),
+        isin: String(p.isin || "").slice(0, 12),
         tipo,
         clase,
         entidad: String(p.entidad || "").slice(0, 60),
+        origen: String(p.origen || "manual"),
         participaciones: num(p.participaciones),
         precioMedio: num(p.precioMedio),
         precioActual: num(p.precioActual),
         fechaPrecio: p.fechaPrecio ? String(p.fechaPrecio).slice(0, 10) : "",
         ter: num(p.ter),
       };
+      if (tipo !== "cuenta") posicion.lotes = lotesDe({ ...posicion, lotes: p.lotes });
+      return posicion;
     });
+    const noticias = entrada.noticias || {};
     return {
       ...base,
       perfil,
@@ -197,7 +262,13 @@
       gastosMensuales: Math.max(0, num(entrada.gastosMensuales)),
       posiciones,
       operaciones: Array.isArray(entrada.operaciones) ? entrada.operaciones : [],
+      rendimientos: Array.isArray(entrada.rendimientos) ? entrada.rendimientos : [],
       historial: Array.isArray(entrada.historial) ? entrada.historial : [],
+      noticias: {
+        temas: Array.isArray(noticias.temas) ? noticias.temas.map(String) : [...TEMAS_POR_DEFECTO],
+        fuente: String(noticias.fuente || ""),
+        clave: String(noticias.clave || ""),
+      },
       ejemplo: Boolean(entrada.ejemplo),
     };
   }
@@ -298,39 +369,52 @@
     return Math.max(0, Math.ceil((totalNecesario - res.valor) / aporte));
   }
 
+  // Compra: añade un lote. Venta: consume lotes por FIFO y calcula la plusvalía
+  // (importe de la venta menos el coste de los lotes más antiguos).
   function aplicarOperacion(posicion, op) {
     const n = num(op.participaciones);
     const precio = num(op.precio);
+    const comision = Math.max(0, num(op.comision));
     if (n <= 0 || precio <= 0) {
       throw new Error("Indica participaciones y precio mayores que cero.");
     }
     const actuales = num(posicion.participaciones);
     const fecha = op.fecha || posicion.fechaPrecio;
+    const lotes = lotesDe(posicion);
+    let restantes;
+    let ganancia = 0;
+    let coste = 0;
     if (op.tipo === "venta") {
-      if (n > actuales + 1e-9) {
+      if (n > actuales + CASI_CERO) {
         throw new Error(`Solo tienes ${actuales.toLocaleString("es-ES")} participaciones.`);
       }
-      return {
-        posicion: {
-          ...posicion,
-          participaciones: Math.max(0, actuales - n),
-          precioActual: precio,
-          fechaPrecio: fecha,
-        },
-        ganancia: n * (precio - num(posicion.precioMedio)),
-      };
+      const fifo = consumirFIFO(lotes, n);
+      restantes = fifo.restantes;
+      coste = fifo.coste;
+      ganancia = n * precio - comision - coste;
+    } else {
+      restantes = [...lotes, { fecha, participaciones: n, coste: n * precio + comision }];
     }
-    const total = actuales + n;
+    const r = resumirLotes(restantes);
     return {
       posicion: {
         ...posicion,
-        participaciones: total,
-        precioMedio: (actuales * num(posicion.precioMedio) + n * precio) / total,
+        lotes: restantes,
+        participaciones: r.participaciones,
+        precioMedio: r.participaciones > CASI_CERO ? r.precioMedio : num(posicion.precioMedio),
         precioActual: precio,
         fechaPrecio: fecha,
       },
-      ganancia: 0,
+      ganancia,
+      coste,
     };
+  }
+
+  function rendimientosDelAnio(estado, anio) {
+    return sumar(
+      (estado.rendimientos || []).filter((r) => String(r.fecha || "").startsWith(String(anio))),
+      (r) => num(r.bruto)
+    );
   }
 
   // Guarda una foto diaria del valor. Si ya hay una de ese día, la sustituye.
@@ -551,7 +635,7 @@
       const anio = String(hoy.getFullYear());
       const plusvalias = sumar(
         (estado.operaciones || []).filter(
-          (o) => o.tipo === "venta" && String(o.fecha || "").startsWith(anio)
+          (o) => o.tipo === "venta" && !o.incompleta && String(o.fecha || "").startsWith(anio)
         ),
         (o) => num(o.ganancia)
       );
@@ -616,6 +700,12 @@
     diasDesde,
     nuevoId,
     repartirEnteros,
+    TEMAS_POR_DEFECTO,
+    lotesDesde,
+    lotesDe,
+    resumirLotes,
+    consumirFIFO,
+    rendimientosDelAnio,
     estadoVacio,
     normalizarEstado,
     valorPosicion,

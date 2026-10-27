@@ -26,6 +26,7 @@
       <a href="#resumen" data-vista="resumen">Resumen</a>
       <a href="#posiciones" data-vista="posiciones">Posiciones</a>
       <a href="#consejos" data-vista="consejos">Consejos <span class="contador" id="contador-consejos" hidden></span></a>
+      <a href="#noticias" data-vista="noticias">Noticias</a>
       <a href="#ajustes" data-vista="ajustes">Ajustes</a>
     </nav>
   </div>
@@ -93,6 +94,7 @@
       <h1 id="t-posiciones">Posiciones</h1>
       <div class="acciones">
         <button type="button" class="boton boton-primario" data-accion="nueva">Añadir posición</button>
+        <button type="button" class="boton" data-accion="importar-csv">Importar de Trade Republic</button>
         <button type="button" class="boton" data-accion="precios">Actualizar precios</button>
       </div>
     </div>
@@ -122,6 +124,33 @@
         <div class="tabla-envoltura" id="tabla-rebalanceo"></div>
       </article>
     </div>
+  </section>
+
+  <!-- NOTICIAS -->
+  <section class="vista" id="vista-noticias" aria-labelledby="t-noticias" hidden>
+    <div class="vista-cab">
+      <h1 id="t-noticias">Noticias</h1>
+      <div class="fuente-estado">
+        <p class="nota" id="noticias-estado" aria-live="polite"></p>
+        <button type="button" class="boton boton-pequeno" data-accion="actualizar-noticias">Actualizar</button>
+      </div>
+    </div>
+
+    <article class="panel" aria-labelledby="t-noticias-cartera">
+      <div class="panel-cab">
+        <h2 id="t-noticias-cartera">Sobre tu cartera</h2>
+        <p class="nota">Titulares de la última semana sobre lo que tienes invertido.</p>
+      </div>
+      <ul class="noticias" id="noticias-cartera"></ul>
+    </article>
+
+    <section class="mercado" aria-labelledby="t-noticias-mercado">
+      <div class="panel-cab">
+        <h2 id="t-noticias-mercado">Mercado en general</h2>
+        <p class="nota">Temas que sigues aunque no los tengas en cartera. Elige cuáles en <a href="#ajustes">Ajustes</a>.</p>
+      </div>
+      <div class="temas" id="noticias-mercado"></div>
+    </section>
   </section>
 
   <!-- AJUSTES -->
@@ -163,6 +192,24 @@
             <label for="a-gastos">Gastos mensuales <em>opcional</em></label>
             <div class="con-unidad"><input id="a-gastos" type="number" min="0" step="50" inputmode="decimal"><span>€</span></div>
             <p class="ayuda">Sirve para comprobar tu colchón de emergencia.</p>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="panel">
+        <legend>Noticias</legend>
+        <p class="nota">Temas de mercado que quieres seguir, los tengas o no en cartera.</p>
+        <div class="temas-elegir" id="temas-elegir"></div>
+        <div class="campos">
+          <div class="campo campo-ancho">
+            <label for="n-fuente">Dirección de la fuente de noticias</label>
+            <input id="n-fuente" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://tu-proyecto.supabase.co/functions/v1/noticias">
+            <p class="ayuda">Es la función «noticias» de supabase/functions. Cómo ponerla en marcha: cartera/README.md.</p>
+          </div>
+          <div class="campo campo-ancho">
+            <label for="n-clave">Clave pública de Supabase <em>opcional</em></label>
+            <input id="n-clave" autocomplete="off" spellcheck="false" placeholder="anon key">
+            <p class="ayuda">Solo si la función exige identificarse. Es la clave pública, nunca la de servicio.</p>
           </div>
         </div>
       </fieldset>
@@ -308,9 +355,42 @@
   </form>
 </dialog>
 
+<!-- Diálogo: importar CSV -->
+<dialog class="dialogo" id="dlg-importar" aria-labelledby="dlg-importar-titulo">
+  <form id="form-importar" novalidate>
+    <div class="dialogo-cab">
+      <h2 id="dlg-importar-titulo">Importar de Trade Republic</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="dialogo-cuerpo">
+      <ol class="pasos-importar">
+        <li>En la app de Trade Republic, entra en <strong>Perfil → Extractos → Exportación de transacciones</strong> y descarga el CSV con todo tu historial.</li>
+        <li>Elige aquí el archivo. Se lee en tu navegador y no se envía a ningún sitio.</li>
+      </ol>
+      <div class="campo">
+        <label for="i-archivo">Archivo CSV</label>
+        <input id="i-archivo" type="file" accept=".csv,text/csv,text/plain">
+      </div>
+      <div class="importacion" id="i-resumen" hidden></div>
+      <p class="error" id="i-error" role="alert" hidden></p>
+      <p class="ayuda">También acepta la plantilla de Atalaya, útil para otros brókeres: <code>fecha;tipo;nombre;isin;participaciones;precio;comision;impuestos</code></p>
+    </div>
+    <div class="dialogo-pie">
+      <span class="hueco"></span>
+      <button type="button" class="boton" data-cerrar>Cancelar</button>
+      <button type="submit" class="boton boton-primario" id="i-confirmar" disabled>Importar</button>
+    </div>
+  </form>
+</dialog>
+
 <p class="aviso" id="aviso" role="status" aria-live="polite" hidden></p>
 
 <script src="js/motor.js"></script>
+<script src="js/importar.js"></script>
+<script src="js/libro.js"></script>
+<script src="js/noticias.js"></script>
 <script src="js/ejemplo.js"></script>
 <script src="js/graficos.js"></script>
 <script src="js/app.js"></script>

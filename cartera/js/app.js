@@ -5,7 +5,9 @@
 
   const M = window.Motor;
   const CLAVE = "atalaya.cartera.v1";
-  const VISTAS = ["resumen", "posiciones", "consejos", "ajustes"];
+  const CLAVE_NOTICIAS = "atalaya.noticias.v1";
+  const MINUTOS_NOTICIAS = 30;
+  const VISTAS = ["resumen", "posiciones", "consejos", "noticias", "ajustes"];
   const COLOR_CLASE = {
     rv: "var(--serie-1)",
     rf: "var(--serie-2)",
@@ -36,6 +38,16 @@
     maximumFractionDigits: 4,
   });
   const fmtFecha = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" });
+  const fmtRelativo = new Intl.RelativeTimeFormat("es-ES", { numeric: "auto" });
+
+  function haceTiempo(iso) {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return "";
+    const minutos = Math.round((Date.now() - t) / 60000);
+    if (minutos < 60) return fmtRelativo.format(-Math.max(1, minutos), "minute");
+    if (minutos < 48 * 60) return fmtRelativo.format(-Math.round(minutos / 60), "hour");
+    return fmtRelativo.format(-Math.round(minutos / 1440), "day");
+  }
 
   function esc(texto) {
     return String(texto == null ? "" : texto).replace(
@@ -143,6 +155,7 @@
     pintarPosiciones(res);
     pintarOperaciones();
     pintarConsejos(recs, res);
+    pintarNoticias();
     pintarAjustes();
 
     const importantes = recs.filter((r) => r.nivel === "alta" || r.nivel === "media").length;
@@ -167,8 +180,10 @@
       .map((p) => p.fechaPrecio)
       .filter(Boolean)
       .sort()[0];
+    const anio = new Date().getFullYear();
     const datos = [
       ["Invertido", M.eur(res.coste)],
+      [`Dividendos e intereses ${anio}`, M.eur(M.rendimientosDelAnio(estado, anio))],
       ["Comisiones al año", `${M.eur(res.costeComisiones)} · ${M.pct(res.terMedio, 2)}`],
       ["Posiciones", String(res.posiciones.length)],
       ["Precio más antiguo", preciosViejos ? fechaCorta(preciosViejos) : "—"],
@@ -331,26 +346,150 @@
   }
 
   function pintarOperaciones() {
-    const ops = (estado.operaciones || [])
+    const ops = [...(estado.operaciones || []), ...(estado.rendimientos || [])]
       .slice()
       .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
-      .slice(0, 20);
+      .slice(0, 25);
+    const titulo = { compra: "Compra", venta: "Venta", dividendo: "Dividendo", interes: "Intereses" };
     $("#lista-operaciones").innerHTML = ops.length
       ? ops
           .map((o) => {
+            if (o.tipo === "dividendo" || o.tipo === "interes") {
+              const retencion = M.num(o.retencion) > 0 ? ` · retención ${M.eur(o.retencion)}` : "";
+              return `<li>
+                <strong>${titulo[o.tipo]} · ${esc(o.nombre)}</strong>
+                <span class="fila-meta">${esc(fechaCorta(o.fecha))}${esc(retencion)}</span>
+                <span class="op-importe positivo">${esc(conSigno(M.num(o.bruto), (n) => fmtPrecio.format(n)))}</span>
+              </li>`;
+            }
             const importe = M.num(o.participaciones) * M.num(o.precio);
-            const extra =
-              o.tipo === "venta"
-                ? `<small class="${claseSigno(o.ganancia)}">Plusvalía ${esc(conSigno(M.num(o.ganancia), M.eur))}</small>`
-                : "";
+            let extra = "";
+            if (o.tipo === "venta") {
+              extra = o.incompleta
+                ? '<small class="nota">Plusvalía sin calcular: faltan compras en el historial</small>'
+                : `<small class="${claseSigno(o.ganancia)}">Plusvalía ${esc(conSigno(M.num(o.ganancia), M.eur))}</small>`;
+            }
             return `<li>
-              <strong>${o.tipo === "venta" ? "Venta" : "Compra"} · ${esc(o.nombre)}</strong>
-              <span class="fila-meta">${esc(fechaCorta(o.fecha))} · ${esc(M.num(o.participaciones).toLocaleString("es-ES"))} × ${esc(fmtPrecio.format(M.num(o.precio)))}</span>
+              <strong>${titulo[o.tipo] || "Operación"} · ${esc(o.nombre)}</strong>
+              <span class="fila-meta">${esc(fechaCorta(o.fecha))} · ${esc(M.num(o.participaciones).toLocaleString("es-ES", { maximumFractionDigits: 6 }))} × ${esc(fmtPrecio.format(M.num(o.precio)))}</span>
               <span class="op-importe"><span>${esc(M.eur(importe))}</span><br>${extra}</span>
             </li>`;
           })
           .join("")
       : '<li class="nota">Aún no has registrado operaciones.</li>';
+  }
+
+  // ---------- noticias ----------
+
+  let noticias = leerNoticiasGuardadas();
+  let noticiasCargando = false;
+  let noticiasError = "";
+
+  function leerNoticiasGuardadas() {
+    try {
+      return JSON.parse(localStorage.getItem(CLAVE_NOTICIAS)) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function firmaConsultas() {
+    return JSON.stringify([estado.noticias.fuente, Noticias.consultas(estado)]);
+  }
+
+  async function cargarNoticias(forzar) {
+    const fuente = estado.noticias.fuente;
+    if (!fuente || noticiasCargando) return;
+    const firma = firmaConsultas();
+    const reciente =
+      noticias && noticias.firma === firma && Date.now() - noticias.cargado < MINUTOS_NOTICIAS * 60000;
+    if (reciente && !forzar) return;
+    noticiasCargando = true;
+    noticiasError = "";
+    pintarNoticias();
+    try {
+      const cabeceras = { "Content-Type": "application/json" };
+      if (estado.noticias.clave) {
+        cabeceras.Authorization = `Bearer ${estado.noticias.clave}`;
+        cabeceras.apikey = estado.noticias.clave;
+      }
+      const resp = await fetch(fuente, {
+        method: "POST",
+        headers: cabeceras,
+        body: JSON.stringify({ consultas: Noticias.consultas(estado) }),
+      });
+      const datos = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(datos.error || `la fuente respondió ${resp.status}`);
+      noticias = {
+        firma,
+        cargado: Date.now(),
+        items: (datos.items || []).filter((n) => /^https?:\/\//.test(n.enlace || "")),
+        medios: datos.medios || [],
+      };
+      try {
+        localStorage.setItem(CLAVE_NOTICIAS, JSON.stringify(noticias));
+      } catch (e) {
+        /* sin almacenamiento: se pedirán otra vez la próxima vez */
+      }
+    } catch (err) {
+      noticiasError = `No se ha podido conectar con la fuente de noticias (${err.message}). Revisa la dirección en Ajustes.`;
+    } finally {
+      noticiasCargando = false;
+      pintarNoticias();
+    }
+  }
+
+  function htmlNoticia(n, conMotivo) {
+    const meta = [n.fuente, haceTiempo(n.fecha)].filter(Boolean).join(" · ");
+    return `<li class="noticia">
+      <a href="${esc(n.enlace)}" target="_blank" rel="noopener noreferrer">${esc(n.titulo)}</a>
+      <span class="noticia-meta">${esc(meta)}</span>
+      ${conMotivo && n.motivo ? `<span class="noticia-motivo">${esc(n.motivo)}</span>` : ""}
+    </li>`;
+  }
+
+  function pintarNoticias() {
+    const fuente = estado.noticias.fuente;
+    // Si cambian las posiciones o los temas se reutilizan los titulares guardados
+    // hasta la próxima carga: organizar() ya descarta lo que no corresponde.
+    const items = fuente && noticias ? noticias.items : [];
+    const { cartera, mercado } = Noticias.organizar(items, estado);
+
+    let textoEstado;
+    if (!fuente) textoEstado = "Fuente de noticias sin conectar.";
+    else if (noticiasCargando) textoEstado = "Buscando titulares…";
+    else if (noticiasError) textoEstado = noticiasError;
+    else if (noticias) textoEstado = `Actualizado ${haceTiempo(new Date(noticias.cargado).toISOString())} · ${noticias.items.length} titulares de prensa económica.`;
+    else textoEstado = "Pulsa Actualizar para buscar titulares.";
+    $("#noticias-estado").textContent = textoEstado;
+
+    const buscadas = Noticias.consultas(estado)
+      .filter((c) => c.tipo === "posicion")
+      .map((c) => c.q);
+    $("#noticias-cartera").innerHTML = cartera.length
+      ? cartera.map((n) => htmlNoticia(n, true)).join("")
+      : `<li class="sin-noticias">${
+          fuente
+            ? "No hay titulares recientes sobre tus posiciones."
+            : `Cuando conectes la fuente en <a href="#ajustes">Ajustes</a>, aquí verás titulares de la última semana sobre ${esc(buscadas.slice(0, 4).join(", ") || "tus posiciones")}.`
+        }</li>`;
+
+    $("#noticias-mercado").innerHTML = mercado
+      .map(({ tema, exposicion, items: delTema }) => {
+        const sin = exposicion.aplicable && exposicion.peso < 0.05;
+        const lista = delTema.length
+          ? delTema.map((n) => htmlNoticia(n, false)).join("")
+          : `<li class="sin-noticias">${fuente ? "Sin titulares esta semana." : "Aquí aparecerán los titulares de la prensa especializada."}</li>`;
+        return `<article class="tema">
+          <div class="tema-cab">
+            <h3>${esc(tema.nombre)}</h3>
+            <span class="exposicion${sin ? " exposicion-cero" : ""}">${esc(Noticias.textoExposicion(exposicion))}</span>
+          </div>
+          <p class="tema-desc">${esc(tema.descripcion)}</p>
+          <ul class="noticias noticias-compactas">${lista}</ul>
+        </article>`;
+      })
+      .join("") || '<p class="nota">No sigues ningún tema. Elige alguno en Ajustes.</p>';
   }
 
   function pintarAjustes() {
@@ -392,10 +531,22 @@
         ? `Suma ${esc(M.pct(suma))}.`
         : `<span class="negativo">Suma ${esc(M.pct(suma))}: ajústalo para que llegue al 100 %.</span>`;
 
+    const temas = $("#temas-elegir");
+    if (!temas.children.length) {
+      temas.innerHTML = Noticias.TEMAS.map(
+        (t) => `<label class="tema-chip"><input type="checkbox" data-tema="${t.id}" id="tema-${t.id}">${esc(t.nombre)}</label>`
+      ).join("");
+    }
+    $$("[data-tema]", temas).forEach((c) => {
+      c.checked = estado.noticias.temas.includes(c.dataset.tema);
+    });
+
     [
       ["#a-aportacion", estado.aportacionMensual],
       ["#a-umbral", estado.umbral],
       ["#a-gastos", estado.gastosMensuales || ""],
+      ["#n-fuente", estado.noticias.fuente],
+      ["#n-clave", estado.noticias.clave],
     ].forEach(([id, v]) => {
       if (document.activeElement !== $(id)) $(id).value = v;
     });
@@ -418,6 +569,7 @@
       else a.removeAttribute("aria-current");
     });
     if (v === "resumen") pintarEvolucion();
+    if (v === "noticias") cargarNoticias(false);
   }
 
   window.addEventListener("hashchange", () => {
@@ -530,10 +682,22 @@
       mostrarError(err.message);
       return;
     }
+    // Los lotes (para el FIFO) solo se rehacen si cambian participaciones o precio medio.
+    const conLotes = (previa) => {
+      if (datos.tipo === "cuenta") return { ...datos, lotes: undefined };
+      const iguales =
+        previa &&
+        Math.abs(M.num(previa.participaciones) - datos.participaciones) < 1e-9 &&
+        Math.abs(M.num(previa.precioMedio) - datos.precioMedio) < 1e-9;
+      return {
+        ...datos,
+        lotes: iguales ? M.lotesDe(previa) : M.lotesDesde(datos.participaciones, datos.precioMedio, datos.fechaPrecio),
+      };
+    };
     if (editando) {
-      estado.posiciones = estado.posiciones.map((p) => (p.id === editando ? { ...p, ...datos } : p));
+      estado.posiciones = estado.posiciones.map((p) => (p.id === editando ? { ...p, ...conLotes(p) } : p));
     } else {
-      estado.posiciones.push({ id: M.nuevoId(), ...datos });
+      estado.posiciones.push({ id: M.nuevoId(), origen: "manual", ...conLotes(null) });
     }
     guardar();
     pintar();
@@ -627,6 +791,99 @@
     avisar(n === 1 ? "1 precio actualizado" : `${n} precios actualizados`);
   });
 
+  // ---------- importación CSV ----------
+
+  const dlgImportar = $("#dlg-importar");
+  let preparado = null;
+
+  function abrirImportar() {
+    preparado = null;
+    $("#i-archivo").value = "";
+    $("#i-resumen").hidden = true;
+    $("#i-error").hidden = true;
+    $("#i-confirmar").disabled = true;
+    dlgImportar.showModal();
+  }
+
+  function mostrarResumenImportacion(p) {
+    const libro = p.libro;
+    const anio = String(new Date().getFullYear());
+    const plusvalias = libro.operaciones
+      .filter((o) => o.tipo === "venta" && !o.incompleta && o.fecha.startsWith(anio))
+      .reduce((s, o) => s + o.ganancia, 0);
+    const cuenta = (t) => p.recuento[t] || 0;
+    const efectivo = cuenta("ingreso") + cuenta("retirada") + cuenta("gasto") + cuenta("impuesto");
+    const filas = [
+      ["Posiciones abiertas", String(libro.posiciones.length)],
+      ["Compras", String(cuenta("compra"))],
+      ["Ventas", `${cuenta("venta")}${cuenta("venta") ? ` · plusvalías ${anio}: ${conSigno(plusvalias, M.eur)}` : ""}`],
+      ["Dividendos e intereses", String(cuenta("dividendo") + cuenta("interes"))],
+      ["Movimientos de efectivo", `${efectivo} (solo cuentan para el saldo)`],
+      ["Efectivo calculado", M.eur(libro.efectivo)],
+    ];
+    const ignoradas = Object.entries(p.ignoradas);
+    const coincidentes = estado.ejemplo
+      ? []
+      : estado.posiciones.filter(
+          (x) => x.origen !== p.formato && libro.posiciones.some((a) => (a.isin && a.isin === x.isin) || a.nombre === x.nombre)
+        );
+    const notas = [
+      estado.ejemplo
+        ? "La cartera de ejemplo se borrará."
+        : `Se sustituye lo importado antes desde ${p.nombreFormato}. Lo que añadiste a mano se queda.`,
+      ...(coincidentes.length
+        ? [`Ya tienes a mano ${coincidentes.map((x) => x.nombre).join(", ")}: revisa que no quede duplicado.`]
+        : []),
+      "Compara el efectivo calculado con el saldo de la app: si el archivo no trae todo el historial, no coincidirá.",
+      ...libro.avisos.slice(0, 5),
+    ];
+    $("#i-resumen").innerHTML = `
+      <p><strong>Formato: ${esc(p.nombreFormato)}</strong> · ${esc(String(p.movimientos.length))} movimientos leídos</p>
+      <dl class="importacion-datos">${filas.map(([dt, dd]) => `<div><dt>${esc(dt)}</dt><dd>${esc(dd)}</dd></div>`).join("")}</dl>
+      ${ignoradas.length ? `<p class="nota">Sin importar: ${esc(ignoradas.map(([k, v]) => `${k} (${v})`).join(", "))}</p>` : ""}
+      <ul class="pasos">${notas.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
+    $("#i-resumen").hidden = false;
+  }
+
+  $("#i-archivo").addEventListener("change", (e) => {
+    const archivo = e.target.files && e.target.files[0];
+    preparado = null;
+    $("#i-confirmar").disabled = true;
+    $("#i-resumen").hidden = true;
+    $("#i-error").hidden = true;
+    if (!archivo) return;
+    const lector = new FileReader();
+    lector.onload = () => {
+      try {
+        preparado = Libro.prepararImportacion(String(lector.result));
+        if (!preparado.movimientos.length) throw new Error("El archivo no contiene movimientos.");
+        mostrarResumenImportacion(preparado);
+        $("#i-confirmar").disabled = false;
+      } catch (err) {
+        preparado = null;
+        $("#i-error").textContent = err.message;
+        $("#i-error").hidden = false;
+      }
+    };
+    lector.onerror = () => {
+      $("#i-error").textContent = "No se ha podido leer el archivo.";
+      $("#i-error").hidden = false;
+    };
+    lector.readAsText(archivo);
+  });
+
+  $("#form-importar").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!preparado) return;
+    const base = estado.ejemplo ? M.estadoVacio() : estado;
+    estado = Libro.fusionar(base, preparado.libro, preparado.formato, { entidad: preparado.entidad });
+    guardar();
+    pintar();
+    dlgImportar.close();
+    avisar(`${preparado.libro.posiciones.length} posiciones importadas de ${preparado.nombreFormato}`);
+    if (location.hash !== "#posiciones") location.hash = "posiciones";
+  });
+
   // ---------- ajustes ----------
 
   $("#form-ajustes").addEventListener("submit", (e) => e.preventDefault());
@@ -645,6 +902,19 @@
       estado.umbral = Math.max(1, Math.min(25, M.num(t.valueAsNumber) || 5));
     } else if (t.id === "a-gastos") {
       estado.gastosMensuales = Math.max(0, M.num(t.valueAsNumber));
+    } else if (t.dataset.tema) {
+      const resto = estado.noticias.temas.filter((id) => id !== t.dataset.tema);
+      estado.noticias.temas = t.checked ? [...resto, t.dataset.tema] : resto;
+    } else if (t.id === "n-fuente") {
+      const url = t.value.trim();
+      if (url && !/^https:\/\//.test(url)) {
+        avisar("La dirección de la fuente debe empezar por https://");
+        return;
+      }
+      estado.noticias.fuente = url;
+      avisar(url ? "Fuente de noticias guardada" : "Fuente de noticias desconectada");
+    } else if (t.id === "n-clave") {
+      estado.noticias.clave = t.value.trim();
     } else {
       return;
     }
@@ -731,6 +1001,14 @@
   const ACCIONES = {
     nueva: () => abrirPosicion(null),
     precios: abrirPrecios,
+    "importar-csv": abrirImportar,
+    "actualizar-noticias": () => {
+      if (!estado.noticias.fuente) {
+        avisar("Conecta primero la fuente de noticias en Ajustes.");
+        return;
+      }
+      cargarNoticias(true);
+    },
     "registrar-operacion": registrarOperacion,
     eliminar: (b) => confirmado(b) && eliminarPosicion(),
     empezar: () => {

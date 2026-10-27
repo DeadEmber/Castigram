@@ -33,6 +33,11 @@
       { id: "ej-op3", fecha: hace(160), tipo: "venta", posicionId: "ej-tecnologica", nombre: "Acción tecnológica", participaciones: 10, precio: 159, ganancia: 640 },
     ];
 
+    const rendimientos = [
+      { id: "ej-r1", fecha: hace(25), tipo: "interes", nombre: "Intereses de la cuenta", bruto: 6.4, retencion: 1.22 },
+      { id: "ej-r2", fecha: hace(70), tipo: "dividendo", posicionId: "ej-energetica", nombre: "Acción energética", bruto: 42, retencion: 7.98 },
+    ];
+
     // Un cierre por mes durante el último año, más el día de hoy.
     const objetivo = { ...Motor.PERFILES.moderado.objetivo };
     const actual = Motor.resumen({ posiciones, objetivo });
@@ -62,6 +67,7 @@
       gastosMensuales: 1000,
       posiciones,
       operaciones,
+      rendimientos,
       historial,
       ejemplo: true,
     });
