@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartera Atalaya</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Seguimiento sencillo de tu cartera de inversión con recomendaciones claras.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <div class="cabecera-in">
+    <a class="marca" href="#resumen" aria-label="Atalaya, ir al resumen">
+      <svg class="marca-icono" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 3h2.5v2h2.25V3h2.5v2h2.25V3H18v5l-1.5 1.5V21h-9V9.5L6 8z" fill="currentColor"/>
+        <rect x="10.5" y="12" width="3" height="4.5" rx="1.5" class="marca-ventana"/>
+      </svg>
+      <span class="marca-nombre">Atalaya</span>
+    </a>
+    <nav class="pestanas" aria-label="Secciones">
+      <a href="#resumen" data-vista="resumen">Resumen</a>
+      <a href="#posiciones" data-vista="posiciones">Posiciones</a>
+      <a href="#consejos" data-vista="consejos">Consejos <span class="contador" id="contador-consejos" hidden></span></a>
+      <a href="#ajustes" data-vista="ajustes">Ajustes</a>
+    </nav>
+  </div>
+</header>
+
+<main class="contenido">
+  <div class="aviso-ejemplo" id="aviso-ejemplo" hidden>
+    <p><strong>Estás viendo una cartera de ejemplo.</strong> Las posiciones y los precios son inventados para que veas cómo funciona.</p>
+    <button type="button" class="boton boton-primario" data-accion="empezar">Empezar con la mía</button>
+  </div>
+
+  <!-- RESUMEN -->
+  <section class="vista" id="vista-resumen" aria-labelledby="t-resumen">
+    <h1 class="visualmente-oculto" id="t-resumen">Resumen</h1>
+    <div class="resumen-cab">
+      <div class="cifra">
+        <p class="etiqueta">Valor de la cartera</p>
+        <p class="cifra-valor" id="valor-total">0 €</p>
+        <p class="cifra-delta" id="ganancia-total"></p>
+      </div>
+      <div class="acciones">
+        <button type="button" class="boton boton-primario" data-accion="precios">Actualizar precios</button>
+        <button type="button" class="boton" data-accion="nueva">Añadir posición</button>
+      </div>
+    </div>
+    <dl class="datos" id="datos-cartera"></dl>
+
+    <div class="rejilla">
+      <article class="panel" aria-labelledby="t-reparto">
+        <div class="panel-cab">
+          <h2 id="t-reparto">Reparto por clase de activo</h2>
+          <p class="nota">Barra: peso actual. Raya: tu objetivo.</p>
+        </div>
+        <ul class="reparto" id="reparto"></ul>
+        <p class="nota panel-pie" id="reparto-pie"></p>
+      </article>
+
+      <div class="columna">
+        <article class="panel" aria-labelledby="t-evolucion">
+          <div class="panel-cab">
+            <h2 id="t-evolucion">Evolución</h2>
+            <ul class="leyenda" id="leyenda-evolucion"></ul>
+          </div>
+          <div class="grafico" id="evolucion"></div>
+          <details class="tabla-plegable">
+            <summary>Ver los datos en tabla</summary>
+            <div class="tabla-envoltura" id="tabla-evolucion"></div>
+          </details>
+        </article>
+
+        <article class="panel" aria-labelledby="t-destacados">
+          <div class="panel-cab">
+            <h2 id="t-destacados">Lo primero que revisaría</h2>
+            <a class="enlace" href="#consejos" id="ver-consejos">Ver todos los consejos</a>
+          </div>
+          <ul class="destacados" id="destacados"></ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- POSICIONES -->
+  <section class="vista" id="vista-posiciones" aria-labelledby="t-posiciones" hidden>
+    <div class="vista-cab">
+      <h1 id="t-posiciones">Posiciones</h1>
+      <div class="acciones">
+        <button type="button" class="boton boton-primario" data-accion="nueva">Añadir posición</button>
+        <button type="button" class="boton" data-accion="precios">Actualizar precios</button>
+      </div>
+    </div>
+    <div class="grupos" id="lista-posiciones"></div>
+    <article class="panel" aria-labelledby="t-operaciones">
+      <div class="panel-cab">
+        <h2 id="t-operaciones">Últimas operaciones</h2>
+        <p class="nota">Para registrar una compra o una venta, abre la posición.</p>
+      </div>
+      <ol class="operaciones" id="lista-operaciones"></ol>
+    </article>
+  </section>
+
+  <!-- CONSEJOS -->
+  <section class="vista" id="vista-consejos" aria-labelledby="t-consejos" hidden>
+    <div class="vista-cab">
+      <h1 id="t-consejos">Consejos</h1>
+      <p class="nota vista-intro" id="consejos-intro"></p>
+    </div>
+    <div class="rejilla rejilla-consejos">
+      <ul class="consejos" id="lista-consejos"></ul>
+      <article class="panel" aria-labelledby="t-rebalanceo">
+        <div class="panel-cab">
+          <h2 id="t-rebalanceo">Para volver justo a tu objetivo</h2>
+          <p class="nota">Compraventas necesarias hoy. Vender puede tener coste fiscal: si puedes, ajústalo con aportaciones.</p>
+        </div>
+        <div class="tabla-envoltura" id="tabla-rebalanceo"></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section class="vista" id="vista-ajustes" aria-labelledby="t-ajustes" hidden>
+    <div class="vista-cab">
+      <h1 id="t-ajustes">Ajustes</h1>
+      <p class="nota vista-intro">Los cambios se guardan al momento.</p>
+    </div>
+    <form class="ajustes" id="form-ajustes" novalidate>
+      <fieldset class="panel">
+        <legend>Perfil de riesgo</legend>
+        <p class="nota">Al cambiar de perfil, el reparto objetivo vuelve al de ese perfil.</p>
+        <div class="perfiles" id="perfiles"></div>
+      </fieldset>
+
+      <fieldset class="panel">
+        <legend>Reparto objetivo</legend>
+        <div class="objetivos" id="objetivos"></div>
+        <div class="objetivo-pie">
+          <p class="nota" id="suma-objetivo" aria-live="polite"></p>
+          <button type="button" class="boton boton-pequeno" data-accion="restablecer-objetivo">Volver al reparto del perfil</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="panel">
+        <legend>Tu plan</legend>
+        <div class="campos">
+          <div class="campo">
+            <label for="a-aportacion">Aportación mensual</label>
+            <div class="con-unidad"><input id="a-aportacion" type="number" min="0" step="10" inputmode="decimal"><span>€</span></div>
+            <p class="ayuda">Te diremos cómo repartirla cada mes.</p>
+          </div>
+          <div class="campo">
+            <label for="a-umbral">Margen antes de avisar</label>
+            <div class="con-unidad"><input id="a-umbral" type="number" min="1" max="25" step="1" inputmode="numeric"><span>puntos</span></div>
+            <p class="ayuda">Si una clase se aleja más de esto de su objetivo, te avisamos.</p>
+          </div>
+          <div class="campo">
+            <label for="a-gastos">Gastos mensuales <em>opcional</em></label>
+            <div class="con-unidad"><input id="a-gastos" type="number" min="0" step="50" inputmode="decimal"><span>€</span></div>
+            <p class="ayuda">Sirve para comprobar tu colchón de emergencia.</p>
+          </div>
+        </div>
+      </fieldset>
+    </form>
+
+    <article class="panel" aria-labelledby="t-datos">
+      <div class="panel-cab">
+        <h2 id="t-datos">Tus datos</h2>
+        <p class="nota">Se guardan solo en este navegador. Haz una copia de vez en cuando y guárdala en un archivo o una nota.</p>
+      </div>
+      <div class="acciones">
+        <button type="button" class="boton" data-accion="exportar">Copiar copia de seguridad</button>
+        <button type="button" class="boton" data-accion="importar">Importar lo pegado</button>
+        <label class="boton" for="d-archivo">Abrir archivo…</label>
+        <input class="visualmente-oculto" id="d-archivo" type="file" accept=".json,application/json,text/plain">
+      </div>
+      <label class="visualmente-oculto" for="d-texto">Copia de seguridad en formato JSON</label>
+      <textarea id="d-texto" class="datos-texto" rows="5" spellcheck="false" placeholder="Pega aquí una copia de seguridad para importarla."></textarea>
+      <div class="acciones acciones-peligro">
+        <button type="button" class="boton" data-accion="cargar-ejemplo" data-confirmar="Pulsa otra vez: sustituye tu cartera">Cargar la cartera de ejemplo</button>
+        <button type="button" class="boton boton-peligro" data-accion="borrar" data-confirmar="Pulsa otra vez para borrarlo todo">Borrar todos mis datos</button>
+      </div>
+    </article>
+  </section>
+
+  <p class="pie">Atalaya calcula sus consejos con reglas sencillas sobre tus datos. Son orientativos y no sustituyen el asesoramiento financiero personalizado.</p>
+</main>
+
+<!-- Diálogo: añadir o editar posición -->
+<dialog class="dialogo" id="dlg-posicion" aria-labelledby="dlg-posicion-titulo">
+  <form id="form-posicion" novalidate>
+    <div class="dialogo-cab">
+      <h2 id="dlg-posicion-titulo">Añadir posición</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="dialogo-cuerpo">
+      <div class="campos">
+        <div class="campo campo-ancho">
+          <label for="p-nombre">Nombre</label>
+          <input id="p-nombre" maxlength="80" autocomplete="off" placeholder="Fondo indexado MSCI World">
+        </div>
+        <div class="campo">
+          <label for="p-tipo">Tipo de producto</label>
+          <select id="p-tipo"></select>
+        </div>
+        <div class="campo">
+          <label for="p-clase">Clase de activo</label>
+          <select id="p-clase"></select>
+        </div>
+        <div class="campo">
+          <label for="p-ticker">Ticker o ISIN <em>opcional</em></label>
+          <input id="p-ticker" class="mono" maxlength="20" autocomplete="off" placeholder="Código del producto">
+        </div>
+        <div class="campo">
+          <label for="p-entidad">Entidad <em>opcional</em></label>
+          <input id="p-entidad" maxlength="60" autocomplete="off" placeholder="Banco o bróker">
+        </div>
+        <div class="campo campo-ancho" data-solo="cuenta">
+          <label for="p-saldo">Saldo</label>
+          <div class="con-unidad"><input id="p-saldo" type="number" min="0" step="0.01" inputmode="decimal"><span>€</span></div>
+        </div>
+        <div class="campo" data-solo="valor">
+          <label for="p-participaciones">Participaciones</label>
+          <input id="p-participaciones" type="number" min="0" step="any" inputmode="decimal">
+        </div>
+        <div class="campo" data-solo="valor">
+          <label for="p-precio-medio">Precio medio de compra</label>
+          <div class="con-unidad"><input id="p-precio-medio" type="number" min="0" step="any" inputmode="decimal"><span>€</span></div>
+        </div>
+        <div class="campo" data-solo="valor">
+          <label for="p-precio-actual">Precio actual</label>
+          <div class="con-unidad"><input id="p-precio-actual" type="number" min="0" step="any" inputmode="decimal"><span>€</span></div>
+        </div>
+        <div class="campo" data-solo="valor">
+          <label for="p-fecha">Fecha del precio</label>
+          <input id="p-fecha" type="date">
+        </div>
+        <div class="campo" data-solo="fondo">
+          <label for="p-ter">Comisión anual (TER)</label>
+          <div class="con-unidad"><input id="p-ter" type="number" min="0" max="5" step="0.01" inputmode="decimal"><span>%</span></div>
+          <p class="ayuda">Aparece en el folleto o en la ficha del fondo como «gastos corrientes».</p>
+        </div>
+      </div>
+
+      <fieldset class="operacion" id="p-operacion" hidden>
+        <legend>Registrar compra o venta</legend>
+        <div class="campos campos-operacion">
+          <div class="campo">
+            <label for="op-tipo">Operación</label>
+            <select id="op-tipo">
+              <option value="compra">Compra</option>
+              <option value="venta">Venta</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="op-participaciones">Participaciones</label>
+            <input id="op-participaciones" type="number" min="0" step="any" inputmode="decimal">
+          </div>
+          <div class="campo">
+            <label for="op-precio">Precio</label>
+            <div class="con-unidad"><input id="op-precio" type="number" min="0" step="any" inputmode="decimal"><span>€</span></div>
+          </div>
+          <div class="campo">
+            <label for="op-fecha">Fecha</label>
+            <input id="op-fecha" type="date">
+          </div>
+        </div>
+        <button type="button" class="boton" data-accion="registrar-operacion">Registrar operación</button>
+        <p class="ayuda">Una compra recalcula tu precio medio. Una venta guarda la plusvalía para los consejos fiscales.</p>
+      </fieldset>
+
+      <p class="error" id="p-error" role="alert" hidden></p>
+    </div>
+    <div class="dialogo-pie">
+      <button type="button" class="boton boton-peligro" data-accion="eliminar" data-confirmar="Pulsa otra vez para eliminar" id="p-eliminar" hidden>Eliminar</button>
+      <span class="hueco"></span>
+      <button type="button" class="boton" data-cerrar>Cancelar</button>
+      <button type="submit" class="boton boton-primario">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Diálogo: actualizar precios -->
+<dialog class="dialogo" id="dlg-precios" aria-labelledby="dlg-precios-titulo">
+  <form id="form-precios" novalidate>
+    <div class="dialogo-cab">
+      <h2 id="dlg-precios-titulo">Actualizar precios</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="dialogo-cuerpo">
+      <p class="nota">Escribe el último precio de cada posición. Se guardarán con la fecha de hoy.</p>
+      <div class="lista-precios" id="lista-precios"></div>
+    </div>
+    <div class="dialogo-pie">
+      <span class="hueco"></span>
+      <button type="button" class="boton" data-cerrar>Cancelar</button>
+      <button type="submit" class="boton boton-primario">Guardar precios</button>
+    </div>
+  </form>
+</dialog>
+
+<p class="aviso" id="aviso" role="status" aria-live="polite" hidden></p>
+
+<script src="js/motor.js"></script>
+<script src="js/ejemplo.js"></script>
+<script src="js/graficos.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,814 @@
+/* Atalaya · interfaz. Pinta el estado y escucha al usuario.
+   Los cálculos viven en motor.js; aquí solo hay DOM y almacenamiento. */
+(function () {
+  "use strict";
+
+  const M = window.Motor;
+  const CLAVE = "atalaya.cartera.v1";
+  const VISTAS = ["resumen", "posiciones", "consejos", "ajustes"];
+  const COLOR_CLASE = {
+    rv: "var(--serie-1)",
+    rf: "var(--serie-2)",
+    liquidez: "var(--serie-3)",
+    alternativos: "var(--serie-4)",
+  };
+  const NIVEL = {
+    alta: "Prioridad alta",
+    media: "Conviene revisar",
+    info: "Para saber",
+    ok: "En orden",
+  };
+  // Cada nivel tiene su forma, para no depender solo del color.
+  const ICONO = {
+    alta: '<path d="M8 1.8 15 14.2H1z" fill="currentColor"/>',
+    media: '<path d="M8 1.5 14.5 8 8 14.5 1.5 8z" fill="currentColor"/>',
+    info: '<circle cx="8" cy="8" r="6" fill="currentColor"/>',
+    ok: '<path d="M2.5 8.5 6.2 12 13.5 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+
+  const $ = (sel, raiz) => (raiz || document).querySelector(sel);
+  const $$ = (sel, raiz) => Array.from((raiz || document).querySelectorAll(sel));
+
+  const fmtPrecio = new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+  const fmtFecha = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" });
+
+  function esc(texto) {
+    return String(texto == null ? "" : texto).replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+    );
+  }
+
+  function conSigno(n, formato) {
+    if (Math.abs(n) < 0.005) return formato(0);
+    return (n > 0 ? "+" : "−") + formato(Math.abs(n));
+  }
+
+  function claseSigno(n) {
+    return n > 0.005 ? "positivo" : n < -0.005 ? "negativo" : "";
+  }
+
+  function fechaCorta(iso) {
+    if (!iso) return "sin fecha";
+    const [a, m, d] = iso.split("-").map(Number);
+    return fmtFecha.format(new Date(a, m - 1, d));
+  }
+
+  function haceDias(iso) {
+    const dias = M.diasDesde(iso, new Date());
+    if (!Number.isFinite(dias)) return "sin fecha";
+    if (dias <= 0) return "hoy";
+    if (dias === 1) return "ayer";
+    return `hace ${dias} días`;
+  }
+
+  function icono(nivel) {
+    return `<svg viewBox="0 0 16 16" aria-hidden="true">${ICONO[nivel]}</svg>`;
+  }
+
+  function numero(id) {
+    const v = $(id).valueAsNumber;
+    return Number.isFinite(v) ? v : NaN;
+  }
+
+  // ---------- almacenamiento ----------
+
+  function cargar() {
+    let guardado = null;
+    try {
+      guardado = localStorage.getItem(CLAVE);
+      if (guardado) return M.normalizarEstado(JSON.parse(guardado));
+    } catch (e) {
+      // Datos ilegibles: los apartamos para no pisarlos y empezamos con el ejemplo.
+      try {
+        if (guardado) localStorage.setItem(CLAVE + ".ilegible", guardado);
+      } catch (e2) {
+        /* sin almacenamiento */
+      }
+    }
+    return Ejemplo.crearEjemplo(new Date());
+  }
+
+  let sinAlmacenamientoAvisado = false;
+
+  function guardar() {
+    if (estado.posiciones.length) {
+      const r = M.resumen(estado);
+      estado.historial = M.registrarFoto(estado.historial, {
+        fecha: M.fechaISO(new Date()),
+        valor: r.valor,
+        invertido: r.coste,
+      });
+    }
+    try {
+      localStorage.setItem(CLAVE, JSON.stringify(estado));
+    } catch (e) {
+      if (!sinAlmacenamientoAvisado) {
+        sinAlmacenamientoAvisado = true;
+        avisar("Este navegador no permite guardar. Copia tu cartera desde Ajustes antes de cerrar.");
+      }
+    }
+  }
+
+  let estado = cargar();
+
+  // ---------- aviso flotante ----------
+
+  let temporizadorAviso;
+  function avisar(texto) {
+    const aviso = $("#aviso");
+    aviso.textContent = texto;
+    aviso.hidden = false;
+    clearTimeout(temporizadorAviso);
+    temporizadorAviso = setTimeout(() => {
+      aviso.hidden = true;
+    }, 3500);
+  }
+
+  // ---------- pintado ----------
+
+  function pintar() {
+    const res = M.resumen(estado);
+    const recs = M.recomendaciones(estado, new Date());
+    $("#aviso-ejemplo").hidden = !estado.ejemplo;
+    pintarCifra(res);
+    pintarReparto(res);
+    pintarEvolucion();
+    pintarDestacados(recs);
+    pintarPosiciones(res);
+    pintarOperaciones();
+    pintarConsejos(recs, res);
+    pintarAjustes();
+
+    const importantes = recs.filter((r) => r.nivel === "alta" || r.nivel === "media").length;
+    const contador = $("#contador-consejos");
+    contador.hidden = importantes === 0;
+    contador.textContent = importantes;
+    contador.setAttribute("aria-label", `${importantes} por revisar`);
+  }
+
+  function pintarCifra(res) {
+    $("#valor-total").textContent = M.eur(res.valor);
+    const delta = $("#ganancia-total");
+    if (!res.posiciones.length) {
+      delta.innerHTML = '<span class="nota">Añade tu primera posición para empezar.</span>';
+    } else {
+      delta.innerHTML = `
+        <span class="${claseSigno(res.ganancia)}">${esc(conSigno(res.ganancia, M.eur))} (${esc(conSigno(res.rentabilidad, M.pct))})</span>
+        <span class="nota">sobre lo invertido</span>`;
+    }
+    const preciosViejos = res.posiciones
+      .filter((p) => p.tipo !== "cuenta")
+      .map((p) => p.fechaPrecio)
+      .filter(Boolean)
+      .sort()[0];
+    const datos = [
+      ["Invertido", M.eur(res.coste)],
+      ["Comisiones al año", `${M.eur(res.costeComisiones)} · ${M.pct(res.terMedio, 2)}`],
+      ["Posiciones", String(res.posiciones.length)],
+      ["Precio más antiguo", preciosViejos ? fechaCorta(preciosViejos) : "—"],
+    ];
+    $("#datos-cartera").innerHTML = datos
+      .map(([dt, dd]) => `<div><dt>${esc(dt)}</dt><dd class="num">${esc(dd)}</dd></div>`)
+      .join("");
+  }
+
+  function pintarReparto(res) {
+    const umbral = M.num(estado.umbral) || 5;
+    $("#reparto").innerHTML = res.clases
+      .map((c) => {
+        const desv = c.desviacion;
+        const nivel = Math.abs(desv) > 2 * umbral ? "alta" : Math.abs(desv) > umbral ? "media" : "ok";
+        const textoDesv =
+          nivel === "ok"
+            ? "Dentro de tu margen"
+            : `${conSigno(desv, (n) => n.toLocaleString("es-ES", { maximumFractionDigits: 1 }))} puntos`;
+        const ancho = Math.min(100, Math.max(0, c.peso));
+        const objetivo = Math.min(100, Math.max(0, c.objetivo));
+        return `
+          <li class="reparto-fila">
+            <div class="reparto-cab">
+              <span class="reparto-nombre"><span class="muestra" style="--c:${COLOR_CLASE[c.id]}"></span>${esc(c.nombre)}</span>
+              <span class="reparto-cifras"><strong>${esc(M.pct(c.peso))}</strong> <span class="nota">objetivo ${esc(M.pct(c.objetivo))}</span></span>
+            </div>
+            <div class="barra" role="img" aria-label="${esc(`${c.nombre}: ${M.pct(c.peso)} de la cartera; objetivo ${M.pct(c.objetivo)}`)}">
+              <span class="barra-relleno" style="--c:${COLOR_CLASE[c.id]};width:${ancho.toFixed(2)}%"></span>
+              <span class="barra-objetivo" style="left:${objetivo.toFixed(2)}%"></span>
+            </div>
+            <div class="reparto-pie">
+              <span>${esc(M.eur(c.valor))}</span>
+              <span class="estado estado-${nivel}">${icono(nivel)}${esc(textoDesv)}</span>
+            </div>
+          </li>`;
+      })
+      .join("");
+    const perfil = M.PERFILES[estado.perfil];
+    $("#reparto-pie").innerHTML = `Perfil ${esc(perfil.nombre.toLowerCase())} · margen de ±${esc(umbral)} puntos · <a href="#ajustes">Cambiar</a>`;
+  }
+
+  function pintarEvolucion() {
+    const historial = estado.historial || [];
+    const ultimo = historial[historial.length - 1];
+    $("#leyenda-evolucion").innerHTML = ultimo
+      ? `<li><span class="clave-linea" style="--c:var(--serie-1)"></span>Valor <strong>${esc(M.eur(ultimo.valor))}</strong></li>
+         <li><span class="clave-linea" style="--c:var(--tinta-3)"></span>Invertido <strong>${esc(M.eur(ultimo.invertido))}</strong></li>`
+      : "";
+    Graficos.evolucion($("#evolucion"), historial, M.eur);
+
+    const filas = historial
+      .slice()
+      .reverse()
+      .map(
+        (f) => `<tr><td>${esc(fechaCorta(f.fecha))}</td><td>${esc(M.eur(f.valor))}</td><td>${esc(M.eur(f.invertido))}</td>
+          <td class="${claseSigno(f.valor - f.invertido)}">${esc(conSigno(f.valor - f.invertido, M.eur))}</td></tr>`
+      )
+      .join("");
+    $("#tabla-evolucion").innerHTML = historial.length
+      ? `<table><thead><tr><th scope="col">Fecha</th><th scope="col">Valor</th><th scope="col">Invertido</th><th scope="col">Ganancia</th></tr></thead><tbody>${filas}</tbody></table>`
+      : '<p class="nota">Todavía no hay datos.</p>';
+  }
+
+  function htmlConsejo(r, completo) {
+    const pasos =
+      completo && r.pasos && r.pasos.length
+        ? `<ul class="pasos">${r.pasos.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`
+        : "";
+    return `
+      <p class="chip nivel-${r.nivel}">${icono(r.nivel)}${esc(NIVEL[r.nivel])}</p>
+      <h3>${esc(r.titulo)}</h3>
+      ${completo ? `<p>${esc(r.texto)}</p>` : ""}
+      ${pasos}`;
+  }
+
+  function pintarDestacados(recs) {
+    const primeros = recs.slice(0, 3);
+    $("#destacados").innerHTML = primeros.map((r) => `<li>${htmlConsejo(r, false)}</li>`).join("");
+    const enlace = $("#ver-consejos");
+    enlace.textContent = `Ver los ${recs.length} consejos`;
+    enlace.hidden = recs.length <= primeros.length;
+  }
+
+  function pintarConsejos(recs, res) {
+    const perfil = M.PERFILES[estado.perfil];
+    $("#consejos-intro").textContent = `Calculados con reglas sencillas a partir de tus posiciones y de tu perfil ${perfil.nombre.toLowerCase()}. Son orientativos, no asesoramiento financiero.`;
+    $("#lista-consejos").innerHTML = recs
+      .map((r) => `<li class="consejo">${htmlConsejo(r, true)}</li>`)
+      .join("");
+
+    const plan = M.planRebalanceo(res);
+    if (!res.valor) {
+      $("#tabla-rebalanceo").innerHTML = '<p class="nota">Aparecerá cuando tengas posiciones.</p>';
+      return;
+    }
+    const filas = res.clases
+      .map((c, i) => {
+        const imp = plan[i].importe;
+        const accion = Math.abs(imp) < 1 ? "—" : imp > 0 ? `Comprar ${M.eur(imp)}` : `Vender ${M.eur(-imp)}`;
+        return `<tr>
+          <th scope="row"><span class="reparto-nombre"><span class="muestra" style="--c:${COLOR_CLASE[c.id]}"></span>${esc(c.nombre)}</span></th>
+          <td>${esc(M.eur(c.valor + imp))}</td>
+          <td class="celda-accion">${esc(accion)}</td>
+        </tr>`;
+      })
+      .join("");
+    $("#tabla-rebalanceo").innerHTML = `<table>
+      <thead><tr><th scope="col">Clase</th><th scope="col">Objetivo</th><th scope="col">Qué hacer</th></tr></thead>
+      <tbody>${filas}</tbody></table>`;
+  }
+
+  function pintarPosiciones(res) {
+    const caja = $("#lista-posiciones");
+    if (!res.posiciones.length) {
+      caja.innerHTML = `<div class="vacio">
+        <p>Aún no tienes posiciones. Añade tus fondos, acciones, ETF, cuentas remuneradas o criptomonedas.</p>
+        <button type="button" class="boton boton-primario" data-accion="nueva">Añadir la primera</button>
+      </div>`;
+      return;
+    }
+    caja.innerHTML = res.clases
+      .filter((c) => res.posiciones.some((p) => p.clase === c.id))
+      .map((c) => {
+        const filas = res.posiciones
+          .filter((p) => p.clase === c.id)
+          .sort((a, b) => b.valor - a.valor)
+          .map((p) => {
+            const meta = [M.TIPOS[p.tipo].nombre, p.entidad].filter(Boolean).map(esc);
+            if (p.ticker) meta.push(`<code>${esc(p.ticker)}</code>`);
+            const precio =
+              p.tipo === "cuenta"
+                ? `<span>Saldo</span><small class="nota">${esc(haceDias(p.fechaPrecio))}</small>`
+                : `<span>${esc(fmtPrecio.format(p.precioActual))}</span><small class="nota">${esc(haceDias(p.fechaPrecio))}</small>`;
+            const ganancia =
+              p.tipo === "cuenta"
+                ? '<small class="nota">Liquidez</small>'
+                : `<small class="${claseSigno(p.ganancia)}">${esc(conSigno(p.ganancia, M.eur))} · ${esc(conSigno(p.rentabilidad, M.pct))}</small>`;
+            return `<li><button type="button" class="fila" data-editar="${esc(p.id)}" aria-label="${esc(`Editar ${p.nombre}`)}">
+              <span class="fila-nombre"><strong>${esc(p.nombre)}</strong><span class="fila-meta">${meta.join(" · ")}</span></span>
+              <span class="fila-num fila-peso">${esc(M.pct(p.peso))}</span>
+              <span class="fila-num fila-precio">${precio}</span>
+              <span class="fila-num fila-valor"><strong>${esc(M.eur(p.valor))}</strong>${ganancia}</span>
+            </button></li>`;
+          })
+          .join("");
+        return `<section class="panel grupo" aria-label="${esc(c.nombre)}">
+          <div class="grupo-cab">
+            <span class="muestra" style="--c:${COLOR_CLASE[c.id]}"></span>
+            <h2>${esc(c.nombre)}</h2>
+            <span class="grupo-total">${esc(M.eur(c.valor))} · ${esc(M.pct(c.peso))}</span>
+          </div>
+          <div>
+            <div class="filas-cab" aria-hidden="true"><span>Posición</span><span>Peso</span><span>Precio</span><span>Valor</span></div>
+            <ul class="filas">${filas}</ul>
+          </div>
+        </section>`;
+      })
+      .join("");
+  }
+
+  function pintarOperaciones() {
+    const ops = (estado.operaciones || [])
+      .slice()
+      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+      .slice(0, 20);
+    $("#lista-operaciones").innerHTML = ops.length
+      ? ops
+          .map((o) => {
+            const importe = M.num(o.participaciones) * M.num(o.precio);
+            const extra =
+              o.tipo === "venta"
+                ? `<small class="${claseSigno(o.ganancia)}">Plusvalía ${esc(conSigno(M.num(o.ganancia), M.eur))}</small>`
+                : "";
+            return `<li>
+              <strong>${o.tipo === "venta" ? "Venta" : "Compra"} · ${esc(o.nombre)}</strong>
+              <span class="fila-meta">${esc(fechaCorta(o.fecha))} · ${esc(M.num(o.participaciones).toLocaleString("es-ES"))} × ${esc(fmtPrecio.format(M.num(o.precio)))}</span>
+              <span class="op-importe"><span>${esc(M.eur(importe))}</span><br>${extra}</span>
+            </li>`;
+          })
+          .join("")
+      : '<li class="nota">Aún no has registrado operaciones.</li>';
+  }
+
+  function pintarAjustes() {
+    // Los controles se crean una vez y luego solo se actualizan, para no perder el foco.
+    const perfiles = $("#perfiles");
+    if (!perfiles.children.length) {
+      perfiles.innerHTML = Object.entries(M.PERFILES)
+        .map(([id, p]) => {
+          const reparto = M.CLASES.map((c) => `${p.objetivo[c.id]}`).join(" / ");
+          return `<label class="perfil">
+            <input type="radio" name="perfil" value="${id}" id="perfil-${id}">
+            <span class="perfil-nombre">${esc(p.nombre)}</span>
+            <span class="perfil-desc">${esc(p.descripcion)}</span>
+            <span class="perfil-reparto">RV / RF / Liquidez / Alt.: ${esc(reparto)}</span>
+          </label>`;
+        })
+        .join("");
+    }
+    $$('input[name="perfil"]', perfiles).forEach((r) => {
+      r.checked = r.value === estado.perfil;
+    });
+
+    const objetivos = $("#objetivos");
+    if (!objetivos.children.length) {
+      objetivos.innerHTML = M.CLASES.map(
+        (c) => `<div class="campo">
+          <label for="obj-${c.id}"><span class="reparto-nombre"><span class="muestra" style="--c:${COLOR_CLASE[c.id]}"></span>${esc(c.nombre)}</span></label>
+          <div class="con-unidad"><input id="obj-${c.id}" data-objetivo="${c.id}" type="number" min="0" max="100" step="1" inputmode="numeric"><span>%</span></div>
+        </div>`
+      ).join("");
+    }
+    M.CLASES.forEach((c) => {
+      const input = $(`#obj-${c.id}`);
+      if (document.activeElement !== input) input.value = estado.objetivo[c.id];
+    });
+    const suma = M.CLASES.reduce((s, c) => s + M.num(estado.objetivo[c.id]), 0);
+    $("#suma-objetivo").innerHTML =
+      Math.abs(suma - 100) < 0.5
+        ? `Suma ${esc(M.pct(suma))}.`
+        : `<span class="negativo">Suma ${esc(M.pct(suma))}: ajústalo para que llegue al 100 %.</span>`;
+
+    [
+      ["#a-aportacion", estado.aportacionMensual],
+      ["#a-umbral", estado.umbral],
+      ["#a-gastos", estado.gastosMensuales || ""],
+    ].forEach(([id, v]) => {
+      if (document.activeElement !== $(id)) $(id).value = v;
+    });
+  }
+
+  // ---------- vistas ----------
+
+  function vistaActual() {
+    const v = location.hash.slice(1);
+    return VISTAS.includes(v) ? v : "resumen";
+  }
+
+  function mostrarVista() {
+    const v = vistaActual();
+    VISTAS.forEach((x) => {
+      $(`#vista-${x}`).hidden = x !== v;
+    });
+    $$(".pestanas a").forEach((a) => {
+      if (a.dataset.vista === v) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    if (v === "resumen") pintarEvolucion();
+  }
+
+  window.addEventListener("hashchange", () => {
+    mostrarVista();
+    window.scrollTo(0, 0);
+  });
+
+  // ---------- diálogo de posición ----------
+
+  const dlgPosicion = $("#dlg-posicion");
+  let editando = null;
+  let claseElegida = false;
+
+  $("#p-tipo").innerHTML = Object.entries(M.TIPOS)
+    .map(([id, t]) => `<option value="${id}">${esc(t.nombre)}</option>`)
+    .join("");
+  $("#p-clase").innerHTML = M.CLASES.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("");
+
+  function ajustarCamposTipo() {
+    const tipo = $("#p-tipo").value;
+    $$("[data-solo]", dlgPosicion).forEach((n) => {
+      const solo = n.dataset.solo;
+      n.hidden =
+        (solo === "cuenta" && tipo !== "cuenta") ||
+        (solo === "valor" && tipo === "cuenta") ||
+        (solo === "fondo" && !["fondo", "etf"].includes(tipo));
+    });
+    if (!claseElegida) $("#p-clase").value = M.TIPOS[tipo].clase;
+  }
+
+  function mostrarError(texto) {
+    const error = $("#p-error");
+    error.textContent = texto || "";
+    error.hidden = !texto;
+  }
+
+  function abrirPosicion(id) {
+    const p = id ? estado.posiciones.find((x) => x.id === id) : null;
+    editando = p ? p.id : null;
+    claseElegida = Boolean(p);
+    mostrarError("");
+    desarmar($("#p-eliminar"));
+    $("#dlg-posicion-titulo").textContent = p ? "Editar posición" : "Añadir posición";
+    const hoy = M.fechaISO(new Date());
+    $("#p-nombre").value = p ? p.nombre : "";
+    $("#p-tipo").value = p ? p.tipo : "fondo";
+    $("#p-clase").value = p ? p.clase : "rv";
+    $("#p-ticker").value = p ? p.ticker : "";
+    $("#p-entidad").value = p ? p.entidad : "";
+    $("#p-saldo").value = p && p.tipo === "cuenta" ? p.participaciones : "";
+    $("#p-participaciones").value = p && p.tipo !== "cuenta" ? p.participaciones : "";
+    $("#p-precio-medio").value = p && p.tipo !== "cuenta" ? p.precioMedio : "";
+    $("#p-precio-actual").value = p && p.tipo !== "cuenta" ? p.precioActual : "";
+    $("#p-fecha").value = p && p.fechaPrecio ? p.fechaPrecio : hoy;
+    $("#p-ter").value = p && p.ter ? p.ter : "";
+    $("#p-operacion").hidden = !p || p.tipo === "cuenta";
+    $("#op-tipo").value = "compra";
+    $("#op-participaciones").value = "";
+    $("#op-precio").value = p ? p.precioActual : "";
+    $("#op-fecha").value = hoy;
+    $("#p-eliminar").hidden = !p;
+    ajustarCamposTipo();
+    dlgPosicion.showModal();
+    $("#p-nombre").focus();
+  }
+
+  $("#p-tipo").addEventListener("change", ajustarCamposTipo);
+  $("#p-clase").addEventListener("change", () => {
+    claseElegida = true;
+  });
+
+  function leerPosicion() {
+    const nombre = $("#p-nombre").value.trim();
+    if (!nombre) throw new Error("Escribe un nombre para la posición.");
+    const tipo = $("#p-tipo").value;
+    const base = {
+      nombre,
+      tipo,
+      clase: $("#p-clase").value,
+      ticker: $("#p-ticker").value.trim(),
+      entidad: $("#p-entidad").value.trim(),
+      ter: ["fondo", "etf"].includes(tipo) ? Math.max(0, numero("#p-ter") || 0) : 0,
+    };
+    if (tipo === "cuenta") {
+      const saldo = numero("#p-saldo");
+      if (!(saldo >= 0)) throw new Error("Indica el saldo de la cuenta.");
+      return { ...base, participaciones: saldo, precioMedio: 1, precioActual: 1, fechaPrecio: M.fechaISO(new Date()) };
+    }
+    const participaciones = numero("#p-participaciones");
+    const precioActual = numero("#p-precio-actual");
+    let precioMedio = numero("#p-precio-medio");
+    if (!(participaciones >= 0)) throw new Error("Indica cuántas participaciones tienes.");
+    if (!(precioActual > 0)) throw new Error("Indica el precio actual (mayor que cero).");
+    if (!(precioMedio >= 0)) precioMedio = precioActual;
+    return {
+      ...base,
+      participaciones,
+      precioMedio,
+      precioActual,
+      fechaPrecio: $("#p-fecha").value || M.fechaISO(new Date()),
+    };
+  }
+
+  $("#form-posicion").addEventListener("submit", (e) => {
+    e.preventDefault();
+    let datos;
+    try {
+      datos = leerPosicion();
+    } catch (err) {
+      mostrarError(err.message);
+      return;
+    }
+    if (editando) {
+      estado.posiciones = estado.posiciones.map((p) => (p.id === editando ? { ...p, ...datos } : p));
+    } else {
+      estado.posiciones.push({ id: M.nuevoId(), ...datos });
+    }
+    guardar();
+    pintar();
+    dlgPosicion.close();
+    avisar(editando ? "Posición actualizada" : "Posición añadida");
+  });
+
+  function registrarOperacion() {
+    const p = estado.posiciones.find((x) => x.id === editando);
+    if (!p) return;
+    const op = {
+      tipo: $("#op-tipo").value,
+      participaciones: numero("#op-participaciones"),
+      precio: numero("#op-precio"),
+      fecha: $("#op-fecha").value || M.fechaISO(new Date()),
+    };
+    let resultado;
+    try {
+      resultado = M.aplicarOperacion(p, op);
+    } catch (err) {
+      mostrarError(err.message);
+      return;
+    }
+    estado.posiciones = estado.posiciones.map((x) => (x.id === p.id ? resultado.posicion : x));
+    estado.operaciones.push({
+      id: M.nuevoId(),
+      posicionId: p.id,
+      nombre: p.nombre,
+      ...op,
+      ganancia: Math.round(resultado.ganancia * 100) / 100,
+    });
+    guardar();
+    pintar();
+    dlgPosicion.close();
+    avisar(
+      op.tipo === "venta"
+        ? `Venta registrada. Plusvalía: ${conSigno(resultado.ganancia, M.eur)}`
+        : "Compra registrada. Precio medio recalculado."
+    );
+  }
+
+  function eliminarPosicion() {
+    const p = estado.posiciones.find((x) => x.id === editando);
+    estado.posiciones = estado.posiciones.filter((x) => x.id !== editando);
+    guardar();
+    pintar();
+    dlgPosicion.close();
+    avisar(`${p ? p.nombre : "Posición"} eliminada`);
+  }
+
+  // ---------- diálogo de precios ----------
+
+  const dlgPrecios = $("#dlg-precios");
+
+  function abrirPrecios() {
+    const conPrecio = estado.posiciones.filter((p) => p.tipo !== "cuenta");
+    if (!conPrecio.length) {
+      avisar("Añade primero alguna posición con precio.");
+      return;
+    }
+    $("#lista-precios").innerHTML = conPrecio
+      .map(
+        (p) => `<div class="precio-fila">
+          <label for="precio-${esc(p.id)}">${esc(p.nombre)}<span>Último: ${esc(fmtPrecio.format(p.precioActual))}, ${esc(haceDias(p.fechaPrecio))}</span></label>
+          <div class="con-unidad"><input id="precio-${esc(p.id)}" data-precio="${esc(p.id)}" type="number" min="0" step="any" inputmode="decimal" value="${esc(p.precioActual)}"><span>€</span></div>
+        </div>`
+      )
+      .join("");
+    dlgPrecios.showModal();
+    const primero = $("[data-precio]", dlgPrecios);
+    if (primero) {
+      primero.focus();
+      primero.select();
+    }
+  }
+
+  $("#form-precios").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const hoy = M.fechaISO(new Date());
+    const nuevos = {};
+    $$("[data-precio]", dlgPrecios).forEach((input) => {
+      if (input.valueAsNumber > 0) nuevos[input.dataset.precio] = input.valueAsNumber;
+    });
+    estado.posiciones = estado.posiciones.map((p) =>
+      nuevos[p.id] ? { ...p, precioActual: nuevos[p.id], fechaPrecio: hoy } : p
+    );
+    guardar();
+    pintar();
+    dlgPrecios.close();
+    const n = Object.keys(nuevos).length;
+    avisar(n === 1 ? "1 precio actualizado" : `${n} precios actualizados`);
+  });
+
+  // ---------- ajustes ----------
+
+  $("#form-ajustes").addEventListener("submit", (e) => e.preventDefault());
+
+  $("#form-ajustes").addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.name === "perfil") {
+      estado.perfil = t.value;
+      estado.objetivo = { ...M.PERFILES[t.value].objetivo };
+      avisar(`Perfil ${M.PERFILES[t.value].nombre.toLowerCase()} guardado`);
+    } else if (t.dataset.objetivo) {
+      estado.objetivo[t.dataset.objetivo] = Math.max(0, Math.min(100, M.num(t.valueAsNumber)));
+    } else if (t.id === "a-aportacion") {
+      estado.aportacionMensual = Math.max(0, M.num(t.valueAsNumber));
+    } else if (t.id === "a-umbral") {
+      estado.umbral = Math.max(1, Math.min(25, M.num(t.valueAsNumber) || 5));
+    } else if (t.id === "a-gastos") {
+      estado.gastosMensuales = Math.max(0, M.num(t.valueAsNumber));
+    } else {
+      return;
+    }
+    guardar();
+    pintar();
+  });
+
+  // ---------- datos ----------
+
+  function exportar() {
+    const texto = JSON.stringify({ ...estado, ejemplo: undefined }, null, 2);
+    const area = $("#d-texto");
+    area.value = texto;
+    const seleccionar = () => {
+      area.focus();
+      area.select();
+      avisar("Copia lista: selecciónala y cópiala a un archivo o una nota.");
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard
+        .writeText(texto)
+        .then(() => avisar("Copia de seguridad copiada. Pégala en un archivo o una nota."))
+        .catch(seleccionar);
+    } else {
+      seleccionar();
+    }
+  }
+
+  function importar(texto) {
+    let nuevo;
+    try {
+      nuevo = M.normalizarEstado(JSON.parse(texto));
+    } catch (err) {
+      avisar(
+        err instanceof SyntaxError
+          ? "No se puede leer: el texto pegado no es una copia de seguridad completa."
+          : err.message
+      );
+      return;
+    }
+    estado = { ...nuevo, ejemplo: false };
+    guardar();
+    pintar();
+    $("#d-texto").value = "";
+    avisar(`Cartera importada: ${estado.posiciones.length} posiciones`);
+  }
+
+  $("#d-archivo").addEventListener("change", (e) => {
+    const archivo = e.target.files && e.target.files[0];
+    if (!archivo) return;
+    const lector = new FileReader();
+    lector.onload = () => importar(String(lector.result));
+    lector.onerror = () => avisar("No se ha podido leer el archivo.");
+    lector.readAsText(archivo);
+    e.target.value = "";
+  });
+
+  // Botones peligrosos: piden una segunda pulsación en lugar de un confirm().
+  function armar(boton) {
+    boton.dataset.textoOriginal = boton.dataset.textoOriginal || boton.textContent;
+    boton.dataset.armado = "1";
+    boton.textContent = boton.dataset.confirmar;
+    clearTimeout(boton._desarmar);
+    boton._desarmar = setTimeout(() => desarmar(boton), 4000);
+  }
+
+  function desarmar(boton) {
+    if (!boton.dataset.armado) return;
+    delete boton.dataset.armado;
+    boton.textContent = boton.dataset.textoOriginal;
+  }
+
+  function confirmado(boton) {
+    if (boton.dataset.armado) {
+      desarmar(boton);
+      return true;
+    }
+    armar(boton);
+    return false;
+  }
+
+  // ---------- acciones ----------
+
+  const ACCIONES = {
+    nueva: () => abrirPosicion(null),
+    precios: abrirPrecios,
+    "registrar-operacion": registrarOperacion,
+    eliminar: (b) => confirmado(b) && eliminarPosicion(),
+    empezar: () => {
+      estado = M.estadoVacio();
+      guardar();
+      pintar();
+      if (location.hash !== "#posiciones") location.hash = "posiciones";
+      abrirPosicion(null);
+    },
+    "restablecer-objetivo": () => {
+      estado.objetivo = { ...M.PERFILES[estado.perfil].objetivo };
+      guardar();
+      pintar();
+      avisar("Reparto objetivo restablecido");
+    },
+    exportar,
+    importar: () => {
+      const texto = $("#d-texto").value.trim();
+      if (!texto) {
+        avisar("Pega primero una copia de seguridad en el cuadro de texto.");
+        return;
+      }
+      importar(texto);
+    },
+    "cargar-ejemplo": (b) => {
+      if (!confirmado(b)) return;
+      estado = Ejemplo.crearEjemplo(new Date());
+      guardar();
+      pintar();
+      avisar("Cartera de ejemplo cargada");
+    },
+    borrar: (b) => {
+      if (!confirmado(b)) return;
+      estado = M.estadoVacio();
+      guardar();
+      pintar();
+      avisar("Datos borrados");
+    },
+  };
+
+  document.addEventListener("click", (e) => {
+    const editar = e.target.closest("[data-editar]");
+    if (editar) {
+      abrirPosicion(editar.dataset.editar);
+      return;
+    }
+    const cerrar = e.target.closest("[data-cerrar]");
+    if (cerrar) {
+      cerrar.closest("dialog").close();
+      return;
+    }
+    const boton = e.target.closest("[data-accion]");
+    if (boton && ACCIONES[boton.dataset.accion]) ACCIONES[boton.dataset.accion](boton);
+  });
+
+  // Cerrar un diálogo al pulsar fuera de él.
+  $$("dialog").forEach((dlg) =>
+    dlg.addEventListener("click", (e) => {
+      if (e.target === dlg) dlg.close();
+    })
+  );
+
+  // El gráfico se redibuja al cambiar el ancho disponible.
+  if ("ResizeObserver" in window) {
+    let ultimoAncho = 0;
+    let pendiente = false;
+    new ResizeObserver((entradas) => {
+      const ancho = Math.round(entradas[0].contentRect.width);
+      if (!ancho || ancho === ultimoAncho || pendiente) return;
+      pendiente = true;
+      requestAnimationFrame(() => {
+        pendiente = false;
+        ultimoAncho = ancho;
+        pintarEvolucion();
+      });
+    }).observe($("#evolucion"));
+  }
+
+  pintar();
+  mostrarVista();
+})();

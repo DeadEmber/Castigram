@@ -93,6 +93,8 @@ supabase/migrations/   Esquema, seguridad (RLS) y almacenamiento
 src/app/               Páginas (bandos, muro, mercadillo, perfil, admin)
 src/components/        Componentes de interfaz
 src/lib/               Cliente de Supabase, tipos y utilidades
+cartera/               Atalaya: app independiente de seguimiento de cartera
+                       de inversión (ver cartera/README.md)
 ```
 
 ## ⚖️ Licencia y marcas
